@@ -1,0 +1,60 @@
+water-surface-app/
+├── public/
+│   ├── assets/
+│   └── index.html
+├── src/
+│   ├── api/                      # API services and clients
+│   │   └── storage.ts            # Local storage service
+│   ├── components/               # Reusable UI components
+│   │   ├── common/               # Generic UI components
+│   │   ├── channel/              # Channel-specific components
+│   │   │   ├── ChannelEditor.tsx
+│   │   │   ├── CrossSectionEditor.tsx
+│   │   │   └── ...
+│   │   └── visualization/        # Visualization components
+│   │       ├── LongitudinalProfile.tsx
+│   │       ├── CrossSectionView.tsx
+│   │       └── ...
+│   ├── config/                   # Application configuration
+│   │   └── constants.ts
+│   ├── hooks/                    # Custom React hooks
+│   │   ├── useChannelCalculations.ts
+│   │   └── ...
+│   ├── layouts/                  # Page layouts
+│   │   ├── MainLayout.tsx
+│   │   └── ...
+│   ├── models/                   # Type definitions
+│   │   ├── channel.ts
+│   │   ├── hydraulics.ts
+│   │   └── ...
+│   ├── pages/                    # Page components
+│   │   ├── ChannelDesigner.tsx
+│   │   ├── Results.tsx
+│   │   └── ...
+│   ├── services/                 # Business logic services
+│   │   ├── calculationService.ts
+│   │   ├── exportService.ts
+│   │   └── webWorkers/           # Web workers for intensive calculations
+│   │       └── standardStepWorker.ts
+│   ├── store/                    # Redux store (if using Redux)
+│   │   ├── slices/
+│   │   │   ├── channelSlice.ts
+│   │   │   └── ...
+│   │   └── store.ts
+│   ├── styles/                   # Global styles
+│   │   └── global.css
+│   ├── utils/                    # Utility functions
+│   │   ├── hydraulics.ts
+│   │   ├── converters.ts
+│   │   └── ...
+│   ├── App.tsx                   # Main app component
+│   ├── index.tsx                 # Entry point
+│   └── vite-env.d.ts             # Vite type definitions
+├── .eslintrc.json                # ESLint configuration
+├── .gitignore                    # Git ignore file
+├── jest.config.js                # Jest configuration
+├── package.json                  # NPM package configuration
+├── README.md                     # Project documentation
+├── tailwind.config.js            # Tailwind CSS configuration
+├── tsconfig.json                 # TypeScript configuration
+└── vite.config.ts                # Vite configuration
