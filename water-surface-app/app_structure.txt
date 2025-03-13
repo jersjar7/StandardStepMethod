@@ -58,3 +58,42 @@ water-surface-app/
 ├── tailwind.config.js            # Tailwind CSS configuration
 ├── tsconfig.json                 # TypeScript configuration
 └── vite.config.ts                # Vite configuration
+
+water-surface-app/
+├── public/                 # Static files
+│   └── vite.svg            # Favicon
+├── src/                    # Source code
+│   ├── assets/             # Images, fonts, etc.
+│   ├── components/         # Reusable UI components
+│   │   ├── ui/             # Base UI components
+│   │   ├── forms/          # Form components
+│   │   ├── layout/         # Layout components
+│   │   └── visualization/  # Charts and visualizations
+│   ├── features/           # Feature-based modules
+│   │   ├── calculator/     # Water surface profile calculator
+│   │   │   ├── components/ # Calculator-specific components
+│   │   │   ├── hooks/      # Custom hooks for calculations
+│   │   │   ├── stores/     # Redux slices for calculator
+│   │   │   └── utils/      # Calculation utilities
+│   │   └── shared/         # Shared feature code
+│   ├── hooks/              # Global custom hooks
+│   ├── lib/                # Third-party library wrappers
+│   ├── services/           # API services
+│   ├── stores/             # Global Redux store
+│   │   ├── index.ts        # Store configuration
+│   │   └── slices/         # Redux slices
+│   ├── types/              # TypeScript type definitions
+│   ├── utils/              # Utility functions
+│   ├── App.tsx             # Main App component
+│   ├── App.css             # Global styles
+│   ├── main.tsx            # Entry point
+│   └── vite-env.d.ts       # Vite type definitions
+├── .eslintrc.js            # ESLint config
+├── .gitignore              # Git ignore file
+├── index.html              # HTML template
+├── package.json            # Dependencies
+├── README.md               # Documentation
+├── tailwind.config.js      # Tailwind CSS config
+├── tsconfig.json           # TypeScript config
+├── vite.config.ts          # Vite config
+└── postcss.config.js       # PostCSS config
