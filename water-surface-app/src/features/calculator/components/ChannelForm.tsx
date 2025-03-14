@@ -50,7 +50,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
   };
 
   // Determine the current boundary condition type
-  const getBoundaryConditionType = () => {
+  const getBoundaryConditionType = (): 'critical-downstream' | 'normal-upstream' | 'custom' => {
     if (channelParams.downstreamDepth && !channelParams.upstreamDepth) {
       return 'critical-downstream';
     } else if (channelParams.upstreamDepth && !channelParams.downstreamDepth) {
@@ -342,4 +342,6 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
       </div>
     </div>
   );
-}
+};
+
+export default ChannelForm;

@@ -1,14 +1,13 @@
-import React, { useState, useEffect} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import type { CalculationResult, HydraulicJump } from './stores/calculatorSlice';
 import { 
   updateChannelParams, 
   setChannelType,
   startCalculation, 
   calculationSuccess, 
   calculationFailure,
-  resetCalculator,
-  CalculationResult,
-  ChannelParams
+  resetCalculator
 } from './stores/calculatorSlice';
 import { RootState } from '../../stores';
 
@@ -24,11 +23,22 @@ import { useChannelCalculations } from './hooks/useChannelCalculations';
 // Import services
 import { ExportService } from '../../services/exportService';
 
+// Interface for worker response messages
+interface WorkerResponse {
+  status: 'success' | 'error';
+  data?: {
+    results: CalculationResult[];
+    hydraulicJump: HydraulicJump;
+  };
+  error?: string;
+}
+
 // Lazy load worker to avoid URL constructor issues
 const getWorker = () => {
   if (typeof Worker !== 'undefined') {
     try {
-      return new Worker(new URL('../../services/webWorkers/standardStepWorker.ts', import.meta.url), { type: 'module' });
+      // Type assertion to avoid TS errors with URL constructor
+      return new Worker(new URL('../../services/webWorkers/standardStepWorker.ts', import.meta.url) as any, { type: 'module' });
     } catch (error) {
       console.error('Error initializing worker:', error);
       return null;
@@ -52,6 +62,7 @@ const Calculator: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'input' | 'results' | 'profile' | 'cross-section'>('input');
   const [showExportOptions, setShowExportOptions] = useState<boolean>(false);
   const [worker, setWorker] = useState<Worker | null>(null);
+  const timeoutRef = useRef<number | null>(null);
   const { calculateWaterSurfaceProfile } = useChannelCalculations();
   
   // Initialize worker
@@ -65,6 +76,11 @@ const Calculator: React.FC = () => {
       if (standardStepWorker) {
         standardStepWorker.terminate();
       }
+      
+      // Clean up any lingering timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, []);
   
@@ -72,10 +88,10 @@ const Calculator: React.FC = () => {
   useEffect(() => {
     if (!worker) return;
     
-    const handleWorkerMessage = (event: MessageEvent) => {
+    const handleWorkerMessage = (event: MessageEvent<WorkerResponse>) => {
       const { status, data, error: workerError } = event.data;
       
-      if (status === 'success') {
+      if (status === 'success' && data) {
         dispatch(calculationSuccess({
           results: data.results,
           hydraulicJump: data.hydraulicJump
@@ -96,7 +112,7 @@ const Calculator: React.FC = () => {
   
   // Update selected result when results change
   useEffect(() => {
-    if (results && results.length > 0) {
+    if (results && results.length > 0 && selectedResultIndex >= 0 && selectedResultIndex < results.length) {
       setSelectedResult(results[selectedResultIndex]);
     } else {
       setSelectedResult(null);
@@ -107,6 +123,12 @@ const Calculator: React.FC = () => {
   const handleCalculate = async () => {
     dispatch(startCalculation());
     
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    
     try {
       // Use web worker for intensive calculations if available
       if (worker) {
@@ -114,16 +136,13 @@ const Calculator: React.FC = () => {
           params: channelParams
         });
         
-        // Fallback with timeout in case worker doesn't respond
-        const timeoutId = setTimeout(() => {
+        // Set fallback timeout in case worker doesn't respond
+        timeoutRef.current = window.setTimeout(() => {
           if (isCalculating) {
             console.log('Worker taking too long, falling back to main thread calculation');
             performMainThreadCalculation();
           }
         }, 5000); // 5 second timeout
-        
-        // Clear timeout if component unmounts
-        return () => clearTimeout(timeoutId);
       } else {
         // No worker available, calculate on main thread
         performMainThreadCalculation();
