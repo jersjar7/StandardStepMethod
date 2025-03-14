@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
   updateChannelParameters, 
@@ -8,7 +8,7 @@ import {
   calculationFailure,
   resetCalculator,
   CalculationResult
-} from '../../stores/slices/calculatorSlice';
+} from '../store/calculatorSlice';
 import { RootState } from '../../stores';
 
 // Import components
@@ -17,16 +17,24 @@ import ResultsTable from './components/ResultsTable';
 import ProfileVisualization from './components/ProfileVisualization';
 import CrossSectionView from './components/CrossSectionView';
 
+// Import hooks
+import { useChannelCalculations } from '../hooks/useChannelCalculations';
+
 // Import services
-import { CalculationService } from '../../services/calculationService';
 import { ExportService } from '../../services/exportService';
 
-// Import worker
-// Note: This assumes that the worker is properly set up with a build tool that supports workers
-const StandardStepWorker = new Worker(
-  new URL('../../services/webWorkers/standardStepWorker.ts', import.meta.url),
-  { type: 'module' }
-);
+// Lazy load worker to avoid URL constructor issues
+const getWorker = () => {
+  if (typeof Worker !== 'undefined') {
+    try {
+      return new Worker(new URL('../../services/webWorkers/standardStepWorker.ts', import.meta.url), { type: 'module' });
+    } catch (error) {
+      console.error('Error initializing worker:', error);
+      return null;
+    }
+  }
+  return null;
+};
 
 const Calculator: React.FC = () => {
   const dispatch = useDispatch();
@@ -42,26 +50,45 @@ const Calculator: React.FC = () => {
   const [selectedResult, setSelectedResult] = useState<CalculationResult | null>(null);
   const [activeTab, setActiveTab] = useState<'input' | 'results' | 'profile' | 'cross-section'>('input');
   const [showExportOptions, setShowExportOptions] = useState<boolean>(false);
+  const [worker, setWorker] = useState<Worker | null>(null);
+  const { calculateWaterSurfaceProfile } = useChannelCalculations();
+  
+  // Initialize worker
+  useEffect(() => {
+    const standardStepWorker = getWorker();
+    if (standardStepWorker) {
+      setWorker(standardStepWorker);
+    }
+    
+    return () => {
+      if (standardStepWorker) {
+        standardStepWorker.terminate();
+      }
+    };
+  }, []);
   
   // Set up listener for worker messages
   useEffect(() => {
+    if (!worker) return;
+    
     const handleWorkerMessage = (event: MessageEvent) => {
       const { status, data, error: workerError } = event.data;
       
       if (status === 'success') {
         dispatch(calculationSuccess(data.results));
+        setActiveTab('results');
       } else {
         dispatch(calculationFailure(workerError || 'Calculation failed'));
       }
     };
     
-    StandardStepWorker.addEventListener('message', handleWorkerMessage);
+    worker.addEventListener('message', handleWorkerMessage);
     
     // Clean up the worker listener when component unmounts
     return () => {
-      StandardStepWorker.removeEventListener('message', handleWorkerMessage);
+      worker.removeEventListener('message', handleWorkerMessage);
     };
-  }, [dispatch]);
+  }, [worker, dispatch]);
   
   // Update selected result when results change
   useEffect(() => {
@@ -73,27 +100,41 @@ const Calculator: React.FC = () => {
   }, [results, selectedResultIndex]);
   
   // Handle calculation
-  const handleCalculate = () => {
+  const handleCalculate = async () => {
     dispatch(startCalculation());
     
     try {
-      // Use web worker for intensive calculations
-      StandardStepWorker.postMessage({
-        params: channelParameters
-      });
-      
-      // For fallback if web worker fails
-      setTimeout(() => {
-        if (isCalculating) {
-          try {
-            const { results, hydraulicJump } = CalculationService.calculateWaterSurfaceProfile(channelParameters);
-            dispatch(calculationSuccess(results));
-            setActiveTab('results');
-          } catch (err) {
-            dispatch(calculationFailure(err instanceof Error ? err.message : 'An unknown error occurred'));
+      // Use web worker for intensive calculations if available
+      if (worker) {
+        worker.postMessage({
+          params: channelParameters
+        });
+        
+        // Fallback with timeout in case worker doesn't respond
+        const timeoutId = setTimeout(() => {
+          if (isCalculating) {
+            console.log('Worker taking too long, falling back to main thread calculation');
+            performMainThreadCalculation();
           }
-        }
-      }, 5000); // 5 second timeout
+        }, 5000); // 5 second timeout
+        
+        // Clear timeout if component unmounts
+        return () => clearTimeout(timeoutId);
+      } else {
+        // No worker available, calculate on main thread
+        performMainThreadCalculation();
+      }
+    } catch (err) {
+      dispatch(calculationFailure(err instanceof Error ? err.message : 'An unknown error occurred'));
+    }
+  };
+  
+  // Perform calculation on main thread as fallback
+  const performMainThreadCalculation = async () => {
+    try {
+      const { results, hydraulicJump } = await calculateWaterSurfaceProfile(channelParameters);
+      dispatch(calculationSuccess(results));
+      setActiveTab('results');
     } catch (err) {
       dispatch(calculationFailure(err instanceof Error ? err.message : 'An unknown error occurred'));
     }

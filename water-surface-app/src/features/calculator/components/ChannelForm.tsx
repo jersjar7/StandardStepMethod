@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChannelParameters } from '../../../stores/slices/calculatorSlice';
+import { ChannelParameters } from '../store/calculatorSlice';
 
 interface ChannelFormProps {
   channelType: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular';
@@ -28,21 +28,25 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
   const handleBoundaryConditionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { value } = e.target;
     
+    // Safe access to critical/normal depth with fallbacks
+    const criticalDepth = channelParameters.criticalDepth || 0;
+    const normalDepth = channelParameters.normalDepth || 0;
+    
     if (value === 'critical-downstream') {
       onParametersChange({ 
         upstreamDepth: undefined,
-        downstreamDepth: channelParameters.criticalDepth || undefined 
+        downstreamDepth: criticalDepth > 0 ? criticalDepth : undefined 
       });
     } else if (value === 'normal-upstream') {
       onParametersChange({ 
-        upstreamDepth: channelParameters.normalDepth || undefined,
+        upstreamDepth: normalDepth > 0 ? normalDepth : undefined,
         downstreamDepth: undefined 
       });
     } else if (value === 'custom') {
       // Keep existing values if they exist, otherwise initialize with reasonable defaults
       onParametersChange({
-        upstreamDepth: channelParameters.upstreamDepth || channelParameters.normalDepth,
-        downstreamDepth: channelParameters.downstreamDepth || channelParameters.criticalDepth
+        upstreamDepth: channelParameters.upstreamDepth || normalDepth || 1.0,
+        downstreamDepth: channelParameters.downstreamDepth || criticalDepth || 0.5
       });
     }
   };
@@ -166,7 +170,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
                 <input
                   type="number"
                   name="sideSlope"
-                  value={channelParameters.sideSlope}
+                  value={channelParameters.sideSlope || 1}
                   onChange={handleInputChange}
                   min="0.1"
                   step="0.1"
@@ -337,3 +341,9 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+};
+
+export default ChannelForm;

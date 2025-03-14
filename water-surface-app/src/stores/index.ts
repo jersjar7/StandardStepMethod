@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import calculatorReducer from './slices/calculatorSlice';
+import calculatorReducer from './slice/calculatorSlice';
 
 export const store = configureStore({
   reducer: {

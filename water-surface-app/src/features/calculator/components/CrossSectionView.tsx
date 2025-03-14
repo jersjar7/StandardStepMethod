@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CalculationResult } from '../../../stores/slices/calculatorSlice';
+import { CalculationResult } from '../store/calculatorSlice';
 
 interface CrossSectionViewProps {
   selectedResult: CalculationResult;
@@ -17,7 +17,9 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
   
   useEffect(() => {
     // Regenerate the cross-section visualization when the selected result changes
-    generateCrossSection();
+    if (selectedResult) {
+      generateCrossSection();
+    }
   }, [selectedResult, channelType]);
   
   const generateCrossSection = () => {
@@ -25,6 +27,8 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     setSvgPath("");
     setWaterPath("");
     setLabels([]);
+    
+    if (!selectedResult) return;
     
     // Default dimensions
     const width = 400;
@@ -40,7 +44,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     let newLabels: Array<{x: number, y: number, text: string}> = [];
     
     // Scale factors to fit the drawing within SVG
-    const scale = Math.min((width - 2 * padding) / topWidth, (height - 2 * padding) / depth);
+    const scale = Math.min((width - 2 * padding) / (topWidth || 1), (height - 2 * padding) / (depth || 1));
     
     // Center point - reference for positioning
     const centerX = width / 2;
@@ -49,7 +53,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     switch (channelType) {
       case 'rectangular':
         // Bottom width would be topWidth for a rectangular channel
-        const halfWidth = (topWidth * scale) / 2;
+        const halfWidth = ((topWidth || 1) * scale) / 2;
         
         // Channel outline
         channelPath = `
@@ -79,11 +83,12 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
         
       case 'trapezoidal':
         // Need to calculate bottom width from top width and side slopes
-        // Assuming side slope (H:V) is represented in the model
-        const sideSlope = 2; // Default side slope, adjust as needed
-        const bottomWidth = topWidth - 2 * sideSlope * depth;
+        // Using a default sideSlope of 2 if not provided
+        const sideSlope = 2; 
+        const slopeRatio = depth / sideSlope;
+        const bottomWidth = Math.max(0.1, (topWidth || 1) - 2 * slopeRatio);
         const halfBottomWidth = (bottomWidth * scale) / 2;
-        const halfTopWidth = (topWidth * scale) / 2;
+        const halfTopWidth = ((topWidth || 1) * scale) / 2;
         
         // Channel outline
         channelPath = `
@@ -114,7 +119,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
         
       case 'triangular':
         // For triangular channels, bottom width is 0
-        const halfTriTopWidth = (topWidth * scale) / 2;
+        const halfTriTopWidth = ((topWidth || 1) * scale) / 2;
         
         // Channel outline
         channelPath = `
@@ -141,7 +146,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
         
       case 'circular':
         // For circular channels, we need to draw an arc
-        const diameter = topWidth; // Approximation, adjust as needed
+        const diameter = topWidth || 1; // Approximation based on top width
         const radius = (diameter * scale) / 2;
         
         // Calculate the angle for the water surface
@@ -178,6 +183,18 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     setDimensions({ width, height });
     setLabels(newLabels);
   };
+  
+  // If no selected result, show a placeholder
+  if (!selectedResult) {
+    return (
+      <div className="bg-white shadow rounded-lg p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Channel Cross Section</h3>
+        <div className="flex justify-center items-center h-64 bg-gray-100 rounded-md">
+          <p className="text-gray-500">No data available</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="bg-white shadow rounded-lg p-6">

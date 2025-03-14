@@ -3,13 +3,16 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 // Define types for our state
 export interface ChannelParameters {
   bottomWidth: number;
-  sideSlope: number;
+  sideSlope?: number;
+  diameter?: number;
   manningN: number;
   channelSlope: number;
   discharge: number;
   length: number;
   upstreamDepth?: number;
   downstreamDepth?: number;
+  criticalDepth?: number;
+  normalDepth?: number;
 }
 
 export interface CalculationResult {
@@ -55,6 +58,42 @@ export const calculatorSlice = createSlice({
   reducers: {
     setChannelType: (state, action: PayloadAction<'rectangular' | 'trapezoidal' | 'triangular' | 'circular'>) => {
       state.channelType = action.payload;
+      
+      // Update channel parameters based on type
+      switch (action.payload) {
+        case 'rectangular':
+          state.channelParameters = {
+            ...state.channelParameters,
+            bottomWidth: state.channelParameters.bottomWidth || 10,
+            sideSlope: undefined,
+            diameter: undefined
+          };
+          break;
+        case 'trapezoidal':
+          state.channelParameters = {
+            ...state.channelParameters,
+            bottomWidth: state.channelParameters.bottomWidth || 10,
+            sideSlope: state.channelParameters.sideSlope || 2,
+            diameter: undefined
+          };
+          break;
+        case 'triangular':
+          state.channelParameters = {
+            ...state.channelParameters,
+            bottomWidth: undefined,
+            sideSlope: state.channelParameters.sideSlope || 1,
+            diameter: undefined
+          };
+          break;
+        case 'circular':
+          state.channelParameters = {
+            ...state.channelParameters,
+            bottomWidth: undefined,
+            sideSlope: undefined,
+            diameter: state.channelParameters.diameter || 1.0
+          };
+          break;
+      }
     },
     updateChannelParameters: (state, action: PayloadAction<Partial<ChannelParameters>>) => {
       state.channelParameters = {
@@ -69,6 +108,13 @@ export const calculatorSlice = createSlice({
     calculationSuccess: (state, action: PayloadAction<CalculationResult[]>) => {
       state.results = action.payload;
       state.isCalculating = false;
+      
+      // Update channel parameters with calculated critical and normal depths
+      if (action.payload.length > 0) {
+        const firstResult = action.payload[0];
+        state.channelParameters.criticalDepth = firstResult.criticalDepth;
+        state.channelParameters.normalDepth = firstResult.normalDepth;
+      }
     },
     calculationFailure: (state, action: PayloadAction<string>) => {
       state.error = action.payload;

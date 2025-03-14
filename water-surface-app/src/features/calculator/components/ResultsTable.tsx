@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CalculationResult } from '../../../stores/slices/calculatorSlice';
+import { CalculationResult } from '../store/calculatorSlice';
 
 interface ResultsTableProps {
   results: CalculationResult[];
