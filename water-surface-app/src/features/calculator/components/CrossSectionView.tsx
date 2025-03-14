@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CalculationResult } from '../store/calculatorSlice';
+import { CalculationResult } from '../stores/calculatorSlice';
 
 interface CrossSectionViewProps {
   selectedResult: CalculationResult;

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ChannelParameters, CalculationResult } from '../store/calculatorSlice';
+import { ChannelParameters, CalculationResult } from '../stores/calculatorSlice';
 
 /**
  * Hook for handling hydraulic calculations

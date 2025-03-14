@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CalculationResult } from '../store/calculatorSlice';
+import { CalculationResult } from '../stores/calculatorSlice';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 interface ProfileVisualizationProps {

@@ -8,8 +8,8 @@ import {
   calculationFailure,
   resetCalculator,
   CalculationResult
-} from '../store/calculatorSlice';
-import { RootState } from '../../stores';
+} from './stores/calculatorSlice';
+import { RootState } from '../stores';
 
 // Import components
 import ChannelForm from './components/ChannelForm';
@@ -18,7 +18,7 @@ import ProfileVisualization from './components/ProfileVisualization';
 import CrossSectionView from './components/CrossSectionView';
 
 // Import hooks
-import { useChannelCalculations } from '../hooks/useChannelCalculations';
+import { useChannelCalculations } from './hooks/useChannelCalculations';
 
 // Import services
 import { ExportService } from '../../services/exportService';
@@ -33,6 +33,7 @@ const getWorker = () => {
       return null;
     }
   }
+  console.warn('Web Workers not supported in this browser. Calculation will run in main thread.');
   return null;
 };
 
