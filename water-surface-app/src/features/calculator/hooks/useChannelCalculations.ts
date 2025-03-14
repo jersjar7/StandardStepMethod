@@ -1,5 +1,15 @@
 import { useState, useCallback } from 'react';
-import { ChannelParams, CalculationResult } from '../stores/calculatorSlice';
+import { 
+  ChannelParams, 
+  CalculationResult, 
+  HydraulicJump 
+} from '../stores/calculatorSlice';
+import { 
+  calculateWaterSurfaceProfile as calculateProfile,
+  calculateCriticalDepth,
+  calculateNormalDepth,
+  FlowDepthPoint
+} from '../utils/hydraulics';
 
 /**
  * Hook for handling hydraulic calculations
@@ -13,96 +23,37 @@ export const useChannelCalculations = () => {
    */
   const calculateWaterSurfaceProfile = useCallback(async (params: ChannelParams): Promise<{
     results: CalculationResult[];
-    hydraulicJump: {
-      occurs: boolean;
-      station?: number;
-      upstreamDepth?: number;
-      downstreamDepth?: number;
-    }
+    hydraulicJump: HydraulicJump;
   }> => {
     setIsCalculating(true);
     setError(null);
     
     try {
-      // Calculate critical and normal depths
-      const criticalDepth = calculateCriticalDepth(params);
-      const normalDepth = calculateNormalDepth(params);
+      // Call the imported utility function to calculate the water surface profile
+      const output = calculateProfile(params);
       
-      // Determine flow regime and step direction
-      const isMild = normalDepth > criticalDepth;
-      const stepDirection = isMild ? 1 : -1; // 1 for upstream, -1 for downstream
+      // Convert from the hydraulics utility format to our application format
+      const results: CalculationResult[] = output.flowProfile.map((point: FlowDepthPoint) => ({
+        station: point.x,
+        depth: point.y,
+        velocity: point.velocity,
+        area: calculateArea(point.y, params), // Calculate area based on depth
+        topWidth: calculateTopWidth(point.y, params),
+        wetPerimeter: calculateWetPerimeter(point.y, params),
+        hydraulicRadius: calculateHydraulicRadius(point.y, params),
+        energy: point.specificEnergy,
+        froudeNumber: point.froudeNumber,
+        criticalDepth: point.criticalDepth,
+        normalDepth: point.normalDepth
+      }));
       
-      // Set initial conditions based on regime
-      let initialStation = stepDirection > 0 ? 0 : params.length;
-      let initialDepth: number;
-      
-      if (isMild) {
-        // For mild slope, start from downstream
-        initialDepth = params.downstreamDepth || criticalDepth;
-      } else {
-        // For steep slope, start from upstream
-        initialDepth = params.upstreamDepth || normalDepth;
-      }
-      
-      // Calculate step size
-      const numSteps = 100; // Number of calculation points
-      const deltaX = params.length / numSteps;
-      
-      // Initialize results array
-      const results: CalculationResult[] = [];
-      
-      // Perform standard step calculations
-      let currentStation = initialStation;
-      let currentDepth = initialDepth;
-      
-      while ((stepDirection > 0 && currentStation <= params.length) || 
-              (stepDirection < 0 && currentStation >= 0)) {
-        // Calculate hydraulic properties at current depth
-        const sectionProps = calculateSectionProperties(currentDepth, params);
-        const velocity = params.discharge / sectionProps.area;
-        const froudeNumber = calculateFroudeNumber(currentDepth, velocity, sectionProps.topWidth);
-        const specificEnergy = currentDepth + (velocity * velocity) / (2 * 9.81);
-        
-        // Store result
-        results.push({
-          station: currentStation,
-          depth: currentDepth,
-          velocity,
-          area: sectionProps.area,
-          topWidth: sectionProps.topWidth,
-          wetPerimeter: sectionProps.wetPerimeter,
-          hydraulicRadius: sectionProps.hydraulicRadius,
-          energy: specificEnergy,
-          froudeNumber,
-          criticalDepth,
-          normalDepth
-        });
-        
-        // Move to next station
-        currentStation += stepDirection * deltaX;
-        
-        // Skip if we've reached the end of the channel
-        if ((stepDirection > 0 && currentStation > params.length) || 
-            (stepDirection < 0 && currentStation < 0)) {
-          break;
-        }
-        
-        // Calculate next depth using standard step method
-        currentDepth = calculateNextDepth(
-          currentDepth, 
-          velocity, 
-          specificEnergy, 
-          params, 
-          deltaX, 
-          stepDirection
-        );
-      }
-      
-      // Sort results by station
-      results.sort((a, b) => a.station - b.station);
-      
-      // Check for hydraulic jump
-      const hydraulicJump = detectHydraulicJump(results);
+      // Convert hydraulic jump format
+      const hydraulicJump: HydraulicJump = output.hydraulicJump ? {
+        occurs: true,
+        station: output.hydraulicJump.position,
+        upstreamDepth: output.hydraulicJump.depth1,
+        downstreamDepth: output.hydraulicJump.depth2
+      } : { occurs: false };
       
       setIsCalculating(false);
       return {
@@ -111,336 +62,74 @@ export const useChannelCalculations = () => {
       };
     } catch (error) {
       setIsCalculating(false);
-      setError(error instanceof Error ? error.message : 'Unknown error occurred');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
       throw error;
     }
   }, []);
 
-  /**
-   * Calculate section properties based on channel type
-   */
-  const calculateSectionProperties = (depth: number, params: ChannelParams): {
-    area: number;
-    wetPerimeter: number;
-    topWidth: number;
-    hydraulicRadius: number;
-  } => {
+  // Helper functions to calculate channel properties
+  // These are only used for the conversion between formats
+  const calculateArea = (depth: number, params: ChannelParams): number => {
     switch (params.channelType) {
       case 'rectangular':
-        return calculateRectangularSection(depth, params);
+        return params.bottomWidth * depth;
       case 'trapezoidal':
-        return calculateTrapezoidalSection(depth, params);
+        return (params.bottomWidth + (params.sideSlope || 0) * depth) * depth;
       case 'triangular':
-        return calculateTriangularSection(depth, params);
+        return (params.sideSlope || 1) * depth * depth;
       case 'circular':
-        return calculateCircularSection(depth, params);
-      default:
-        throw new Error(`Unsupported channel type: ${params.channelType}`);
-    }
-  };
-  
-  /**
-   * Calculate properties for rectangular section
-   */
-  const calculateRectangularSection = (depth: number, params: ChannelParams): {
-    area: number;
-    wetPerimeter: number;
-    topWidth: number;
-    hydraulicRadius: number;
-  } => {
-    const area = params.bottomWidth * depth;
-    const wetPerimeter = params.bottomWidth + 2 * depth;
-    const topWidth = params.bottomWidth;
-    const hydraulicRadius = area / wetPerimeter;
-    
-    return {
-      area,
-      wetPerimeter,
-      topWidth,
-      hydraulicRadius
-    };
-  };
-  
-  /**
-   * Calculate properties for trapezoidal section
-   */
-  const calculateTrapezoidalSection = (depth: number, params: ChannelParams): {
-    area: number;
-    wetPerimeter: number;
-    topWidth: number;
-    hydraulicRadius: number;
-  } => {
-    const sideSlope = params.sideSlope || 0;
-    const topWidth = params.bottomWidth + 2 * sideSlope * depth;
-    const area = (params.bottomWidth + sideSlope * depth) * depth;
-    const wetPerimeter = params.bottomWidth + 2 * depth * Math.sqrt(1 + sideSlope * sideSlope);
-    const hydraulicRadius = area / wetPerimeter;
-    
-    return {
-      area,
-      wetPerimeter,
-      topWidth,
-      hydraulicRadius
-    };
-  };
-  
-  /**
-   * Calculate properties for triangular section
-   */
-  const calculateTriangularSection = (depth: number, params: ChannelParams): {
-    area: number;
-    wetPerimeter: number;
-    topWidth: number;
-    hydraulicRadius: number;
-  } => {
-    const sideSlope = params.sideSlope || 1;
-    const topWidth = 2 * sideSlope * depth;
-    const area = sideSlope * depth * depth;
-    const wetPerimeter = 2 * depth * Math.sqrt(1 + sideSlope * sideSlope);
-    const hydraulicRadius = area / wetPerimeter;
-    
-    return {
-      area,
-      wetPerimeter,
-      topWidth,
-      hydraulicRadius
-    };
-  };
-  
-  /**
-   * Calculate properties for circular section
-   */
-  const calculateCircularSection = (depth: number, params: ChannelParams): {
-    area: number;
-    wetPerimeter: number;
-    topWidth: number;
-    hydraulicRadius: number;
-  } => {
-    // For circular channels
-    const diameter = params.diameter || 1.0;
-    
-    // Calculate central angle in radians
-    const theta = 2 * Math.acos(1 - 2 * depth / diameter);
-    
-    // Calculate area
-    const area = (diameter * diameter / 8) * (theta - Math.sin(theta));
-    
-    // Calculate wetted perimeter
-    const wetPerimeter = (diameter * theta) / 2;
-    
-    // Calculate top width
-    const topWidth = diameter * Math.sin(theta / 2);
-    
-    // Calculate hydraulic radius
-    const hydraulicRadius = area / wetPerimeter;
-    
-    return {
-      area,
-      wetPerimeter,
-      topWidth,
-      hydraulicRadius
-    };
-  };
-  
-  /**
-   * Calculate critical depth for a channel
-   */
-  const calculateCriticalDepth = (params: ChannelParams): number => {
-    const g = 9.81; // Gravitational acceleration
-    const q = params.discharge; // Discharge
-    
-    switch (params.channelType) {
-      case 'rectangular':
-        // For rectangular channels: yc = (q²/(g*b²))^(1/3)
-        return Math.pow(q * q / (g * params.bottomWidth * params.bottomWidth), 1/3);
-      
-      case 'trapezoidal':
-        // For trapezoidal channels, use iterative method
-        let yc = 0.1; // Initial guess
-        let error = 1;
-        let iterations = 0;
-        
-        while (error > 0.0001 && iterations < 100) {
-          const section = calculateTrapezoidalSection(yc, params);
-          const froude = q / (section.area * Math.sqrt(g * section.area / section.topWidth));
-          
-          error = Math.abs(froude - 1);
-          
-          // Adjust depth based on Froude number
-          if (froude > 1) {
-            yc += 0.01;
-          } else {
-            yc -= 0.01;
-          }
-          
-          iterations++;
-        }
-        
-        return yc;
-      
-      case 'triangular':
-        // For triangular channels: yc = (2*q²/(g*m²))^(1/5)
-        const sideSlope = params.sideSlope || 1;
-        return Math.pow(2 * q * q / (g * sideSlope * sideSlope), 1/5);
-      
-      case 'circular':
-        // For circular channels, use iterative method
         const diameter = params.diameter || 1.0;
-        let ycCircular = diameter / 4; // Initial guess
-        error = 1;
-        iterations = 0;
-        
-        while (error > 0.0001 && iterations < 100) {
-          const section = calculateCircularSection(ycCircular, params);
-          const froude = q / (section.area * Math.sqrt(g * section.area / section.topWidth));
-          
-          error = Math.abs(froude - 1);
-          
-          // Adjust depth based on Froude number
-          if (froude > 1) {
-            ycCircular += 0.01;
-          } else {
-            ycCircular -= 0.01;
-          }
-          
-          iterations++;
-        }
-        
-        return ycCircular;
-      
+        const theta = 2 * Math.acos(1 - 2 * depth / diameter);
+        return (diameter * diameter / 8) * (theta - Math.sin(theta));
       default:
         throw new Error(`Unsupported channel type: ${params.channelType}`);
     }
   };
   
-  /**
-   * Calculate normal depth using Manning's equation
-   */
-  const calculateNormalDepth = (params: ChannelParams): number => {
-    const { manningN, channelSlope, discharge } = params;
-    
-    // Use iterative approach to solve Manning's equation
-    let yn = 0.1; // Initial guess
-    let error = 1;
-    let iterations = 0;
-    
-    while (error > 0.0001 && iterations < 100) {
-      const section = calculateSectionProperties(yn, params);
-      
-      // Manning's equation: Q = (1/n) * A * R^(2/3) * S^(1/2)
-      const calculatedQ = (1 / manningN) * section.area * 
-        Math.pow(section.hydraulicRadius, 2/3) * Math.pow(channelSlope, 1/2);
-      
-      error = Math.abs(calculatedQ - discharge) / discharge;
-      
-      // Adjust normal depth based on error
-      if (calculatedQ < discharge) {
-        yn += 0.01; // Increase depth
-      } else {
-        yn -= 0.01; // Decrease depth
-      }
-      
-      iterations++;
+  const calculateTopWidth = (depth: number, params: ChannelParams): number => {
+    switch (params.channelType) {
+      case 'rectangular':
+        return params.bottomWidth;
+      case 'trapezoidal':
+        return params.bottomWidth + 2 * (params.sideSlope || 0) * depth;
+      case 'triangular':
+        return 2 * (params.sideSlope || 1) * depth;
+      case 'circular':
+        const diameter = params.diameter || 1.0;
+        const theta = 2 * Math.acos(1 - 2 * depth / diameter);
+        return diameter * Math.sin(theta / 2);
+      default:
+        throw new Error(`Unsupported channel type: ${params.channelType}`);
     }
-    
-    return yn;
   };
   
-  /**
-   * Calculate the Froude number
-   */
-  const calculateFroudeNumber = (depth: number, velocity: number, topWidth: number): number => {
-    const g = 9.81; // Gravitational acceleration
-    const hydraulicDepth = depth; // Approximation for rectangular channels
-    
-    return velocity / Math.sqrt(g * hydraulicDepth);
+  const calculateWetPerimeter = (depth: number, params: ChannelParams): number => {
+    switch (params.channelType) {
+      case 'rectangular':
+        return params.bottomWidth + 2 * depth;
+      case 'trapezoidal':
+        return params.bottomWidth + 2 * depth * Math.sqrt(1 + (params.sideSlope || 0) ** 2);
+      case 'triangular':
+        return 2 * depth * Math.sqrt(1 + (params.sideSlope || 1) ** 2);
+      case 'circular':
+        const diameter = params.diameter || 1.0;
+        const theta = 2 * Math.acos(1 - 2 * depth / diameter);
+        return (diameter * theta) / 2;
+      default:
+        throw new Error(`Unsupported channel type: ${params.channelType}`);
+    }
   };
   
-  /**
-   * Calculate the next depth using the standard step method
-   */
-  const calculateNextDepth = (
-    currentDepth: number, 
-    velocity: number, 
-    specificEnergy: number, 
-    params: ChannelParams, 
-    deltaX: number, 
-    stepDirection: number
-  ): number => {
-    // Calculate friction slope using Manning's equation
-    const section = calculateSectionProperties(currentDepth, params);
-    const frictionSlope = Math.pow(params.discharge * params.manningN / 
-                        (section.area * Math.pow(section.hydraulicRadius, 2/3)), 2);
-    
-    // Estimate next depth
-    let nextDepth = currentDepth;
-    
-    // Iterative solution for energy equation
-    let error = 1;
-    let iterations = 0;
-    
-    while (error > 0.0001 && iterations < 50) {
-      const nextSection = calculateSectionProperties(nextDepth, params);
-      const nextVelocity = params.discharge / nextSection.area;
-      const nextEnergy = nextDepth + (nextVelocity * nextVelocity) / (2 * 9.81);
-      
-      // Calculate head loss
-      const avgFrictionSlope = (frictionSlope + Math.pow(params.discharge * params.manningN / 
-                              (nextSection.area * Math.pow(nextSection.hydraulicRadius, 2/3)), 2)) / 2;
-      const headLoss = avgFrictionSlope * deltaX;
-      
-      // Calculate energy difference
-      const energyDiff = nextEnergy - (specificEnergy + stepDirection * headLoss);
-      error = Math.abs(energyDiff);
-      
-      // Adjust next depth
-      if (energyDiff > 0) {
-        nextDepth -= 0.001;
-      } else {
-        nextDepth += 0.001;
-      }
-      
-      iterations++;
-    }
-    
-    return nextDepth;
-  };
-  
-  /**
-   * Detect hydraulic jump in the results
-   */
-  const detectHydraulicJump = (results: CalculationResult[]): {
-    occurs: boolean;
-    station?: number;
-    upstreamDepth?: number;
-    downstreamDepth?: number;
-  } => {
-    for (let i = 0; i < results.length - 1; i++) {
-      // Check for transition from supercritical to subcritical flow
-      if (results[i].froudeNumber > 1 && results[i + 1].froudeNumber < 1) {
-        // Calculate conjugate depth using the momentum equation
-        const upstreamDepth = results[i].depth;
-        const upstreamFroude = results[i].froudeNumber;
-        const downstreamDepth = 0.5 * upstreamDepth * (Math.sqrt(1 + 8 * upstreamFroude * upstreamFroude) - 1);
-        
-        return {
-          occurs: true,
-          station: (results[i].station + results[i + 1].station) / 2,
-          upstreamDepth,
-          downstreamDepth
-        };
-      }
-    }
-    
-    // No hydraulic jump detected
-    return {
-      occurs: false
-    };
+  const calculateHydraulicRadius = (depth: number, params: ChannelParams): number => {
+    const area = calculateArea(depth, params);
+    const wetPerimeter = calculateWetPerimeter(depth, params);
+    return area / wetPerimeter;
   };
 
   return {
     calculateWaterSurfaceProfile,
-    calculateCriticalDepth,
+    calculateCriticalDepth, // Expose the imported utility functions
     calculateNormalDepth,
     isCalculating,
     error

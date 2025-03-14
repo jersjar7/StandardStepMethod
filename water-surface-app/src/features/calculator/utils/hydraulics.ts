@@ -1,24 +1,59 @@
-import { ChannelParams, ChannelType, CalculationResults, FlowDepthPoint } from '../types';
+import { ChannelParams } from '../stores/calculatorSlice';
 
 // Gravitational acceleration
 const G = 9.81; // m/s² in metric
 const G_IMPERIAL = 32.2; // ft/s² in imperial
 
 /**
+ * Interface for flow depth points in the profile
+ */
+export interface FlowDepthPoint {
+  x: number;
+  y: number;
+  velocity: number;
+  froudeNumber: number;
+  specificEnergy: number;
+  criticalDepth: number;
+  normalDepth: number;
+}
+
+/**
+ * Interface for hydraulic jump details
+ */
+export interface HydraulicJumpDetails {
+  position: number;
+  depth1: number;
+  depth2: number;
+  energyLoss: number;
+}
+
+/**
+ * Interface for calculation results
+ */
+export interface WaterSurfaceResults {
+  flowProfile: FlowDepthPoint[];
+  profileType: string;
+  channelType: string;
+  criticalDepth: number;
+  normalDepth: number;
+  isChoking: boolean;
+  hydraulicJump?: HydraulicJumpDetails;
+}
+
+/**
  * Calculates the critical depth for a given channel and discharge
  */
 export function calculateCriticalDepth(params: ChannelParams): number {
-  const g = params.units === 'metric' ? G : G_IMPERIAL;
+  const g = params.units === 'imperial' ? G_IMPERIAL : G;
   
-  switch(params.type) {
-    case ChannelType.RECTANGULAR:
-      if (!params.bottomWidth) throw new Error("Bottom width required for rectangular channel");
+  switch(params.channelType) {
+    case 'rectangular':
       // yc = (q²/g)^(1/3) where q = Q/b
       return Math.pow((params.discharge / params.bottomWidth) ** 2 / g, 1/3);
       
-    case ChannelType.TRAPEZOIDAL:
-      if (!params.bottomWidth || !params.sideSlope) 
-        throw new Error("Bottom width and side slope required for trapezoidal channel");
+    case 'trapezoidal':
+      if (!params.sideSlope) 
+        throw new Error("Side slope required for trapezoidal channel");
       
       // For trapezoidal channels, we need to use an iterative method
       // Start with an initial guess based on rectangular approximation
@@ -51,12 +86,12 @@ export function calculateCriticalDepth(params: ChannelParams): number {
       
       return yc;
       
-    case ChannelType.TRIANGULAR:
+    case 'triangular':
       if (!params.sideSlope) throw new Error("Side slope required for triangular channel");
       // yc = (2*Q²/(g*m²))^(1/5)
       return Math.pow(2 * params.discharge ** 2 / (g * params.sideSlope ** 2), 1/5);
       
-    case ChannelType.CIRCULAR:
+    case 'circular':
       if (!params.diameter) throw new Error("Diameter required for circular channel");
       
       // For circular channels, we need to iterate to find critical depth
@@ -91,7 +126,7 @@ export function calculateCriticalDepth(params: ChannelParams): number {
       return y;
       
     default:
-      throw new Error("Unsupported channel type");
+      throw new Error(`Unsupported channel type: ${params.channelType}`);
   }
 }
 
@@ -99,7 +134,7 @@ export function calculateCriticalDepth(params: ChannelParams): number {
  * Calculates the normal depth for a given channel, discharge, slope, and roughness
  */
 export function calculateNormalDepth(params: ChannelParams): number {
-  const kn = params.units === 'metric' ? 1.0 : 1.49; // Manning's constant
+  const kn = params.units === 'imperial' ? 1.49 : 1.0; // Manning's constant
   
   // Using Manning's equation: Q = (kn/n) * A * R^(2/3) * S^(1/2)
   // We need to iterate to find the depth that satisfies this equation
@@ -115,27 +150,26 @@ export function calculateNormalDepth(params: ChannelParams): number {
     let area: number;
     let wettedPerimeter: number;
     
-    switch(params.type) {
-      case ChannelType.RECTANGULAR:
-        if (!params.bottomWidth) throw new Error("Bottom width required for rectangular channel");
+    switch(params.channelType) {
+      case 'rectangular':
         area = params.bottomWidth * yn;
         wettedPerimeter = params.bottomWidth + 2 * yn;
         break;
         
-      case ChannelType.TRAPEZOIDAL:
-        if (!params.bottomWidth || !params.sideSlope) 
-          throw new Error("Bottom width and side slope required for trapezoidal channel");
+      case 'trapezoidal':
+        if (!params.sideSlope) 
+          throw new Error("Side slope required for trapezoidal channel");
         area = (params.bottomWidth + params.sideSlope * yn) * yn;
         wettedPerimeter = params.bottomWidth + 2 * yn * Math.sqrt(1 + params.sideSlope ** 2);
         break;
         
-      case ChannelType.TRIANGULAR:
+      case 'triangular':
         if (!params.sideSlope) throw new Error("Side slope required for triangular channel");
         area = params.sideSlope * yn ** 2;
         wettedPerimeter = 2 * yn * Math.sqrt(1 + params.sideSlope ** 2);
         break;
         
-      case ChannelType.CIRCULAR:
+      case 'circular':
         if (!params.diameter) throw new Error("Diameter required for circular channel");
         const theta = 2 * Math.acos(1 - 2 * yn / params.diameter);
         area = (params.diameter ** 2 / 8) * (theta - Math.sin(theta));
@@ -143,13 +177,13 @@ export function calculateNormalDepth(params: ChannelParams): number {
         break;
         
       default:
-        throw new Error("Unsupported channel type");
+        throw new Error(`Unsupported channel type: ${params.channelType}`);
     }
     
     const hydraulicRadius = area / wettedPerimeter;
     
     // Calculate discharge using Manning's equation
-    const calculatedQ = (kn / params.roughness) * area * Math.pow(hydraulicRadius, 2/3) * Math.pow(params.slope, 1/2);
+    const calculatedQ = (kn / params.manningN) * area * Math.pow(hydraulicRadius, 2/3) * Math.pow(params.channelSlope, 1/2);
     
     // Error is difference from actual discharge
     error = Math.abs(calculatedQ - params.discharge) / params.discharge;
@@ -175,31 +209,30 @@ export function calculateFroudeNumber(
   velocity: number, 
   params: ChannelParams
 ): number {
-  const g = params.units === 'metric' ? G : G_IMPERIAL;
+  const g = params.units === 'imperial' ? G_IMPERIAL : G;
   let topWidth: number;
   let area: number;
   
-  switch(params.type) {
-    case ChannelType.RECTANGULAR:
-      if (!params.bottomWidth) throw new Error("Bottom width required for rectangular channel");
+  switch(params.channelType) {
+    case 'rectangular':
       topWidth = params.bottomWidth;
       area = params.bottomWidth * depth;
       break;
       
-    case ChannelType.TRAPEZOIDAL:
-      if (!params.bottomWidth || !params.sideSlope) 
-        throw new Error("Bottom width and side slope required for trapezoidal channel");
+    case 'trapezoidal':
+      if (!params.sideSlope) 
+        throw new Error("Side slope required for trapezoidal channel");
       topWidth = params.bottomWidth + 2 * params.sideSlope * depth;
       area = (params.bottomWidth + params.sideSlope * depth) * depth;
       break;
       
-    case ChannelType.TRIANGULAR:
+    case 'triangular':
       if (!params.sideSlope) throw new Error("Side slope required for triangular channel");
       topWidth = 2 * params.sideSlope * depth;
       area = params.sideSlope * depth ** 2;
       break;
       
-    case ChannelType.CIRCULAR:
+    case 'circular':
       if (!params.diameter) throw new Error("Diameter required for circular channel");
       const theta = 2 * Math.acos(1 - 2 * depth / params.diameter);
       topWidth = params.diameter * Math.sin(theta / 2);
@@ -207,7 +240,7 @@ export function calculateFroudeNumber(
       break;
       
     default:
-      throw new Error("Unsupported channel type");
+      throw new Error(`Unsupported channel type: ${params.channelType}`);
   }
   
   // Froude number = V / sqrt(g * hydraulicDepth)
@@ -224,31 +257,30 @@ export function calculateFrictionSlope(
   velocity: number, 
   params: ChannelParams
 ): number {
-  const kn = params.units === 'metric' ? 1.0 : 1.49; // Manning's constant
+  const kn = params.units === 'imperial' ? 1.49 : 1.0; // Manning's constant
   let area: number;
   let wettedPerimeter: number;
   
-  switch(params.type) {
-    case ChannelType.RECTANGULAR:
-      if (!params.bottomWidth) throw new Error("Bottom width required for rectangular channel");
+  switch(params.channelType) {
+    case 'rectangular':
       area = params.bottomWidth * depth;
       wettedPerimeter = params.bottomWidth + 2 * depth;
       break;
       
-    case ChannelType.TRAPEZOIDAL:
-      if (!params.bottomWidth || !params.sideSlope) 
-        throw new Error("Bottom width and side slope required for trapezoidal channel");
+    case 'trapezoidal':
+      if (!params.sideSlope) 
+        throw new Error("Side slope required for trapezoidal channel");
       area = (params.bottomWidth + params.sideSlope * depth) * depth;
       wettedPerimeter = params.bottomWidth + 2 * depth * Math.sqrt(1 + params.sideSlope ** 2);
       break;
       
-    case ChannelType.TRIANGULAR:
+    case 'triangular':
       if (!params.sideSlope) throw new Error("Side slope required for triangular channel");
       area = params.sideSlope * depth ** 2;
       wettedPerimeter = 2 * depth * Math.sqrt(1 + params.sideSlope ** 2);
       break;
       
-    case ChannelType.CIRCULAR:
+    case 'circular':
       if (!params.diameter) throw new Error("Diameter required for circular channel");
       const theta = 2 * Math.acos(1 - 2 * depth / params.diameter);
       area = (params.diameter ** 2 / 8) * (theta - Math.sin(theta));
@@ -256,14 +288,14 @@ export function calculateFrictionSlope(
       break;
       
     default:
-      throw new Error("Unsupported channel type");
+      throw new Error(`Unsupported channel type: ${params.channelType}`);
   }
   
   const hydraulicRadius = area / wettedPerimeter;
   
   // Manning's equation rearranged to solve for the slope
   // S = (Q*n / (kn*A*R^(2/3)))^2
-  return Math.pow((velocity * area) * params.roughness / (kn * area * Math.pow(hydraulicRadius, 2/3)), 2);
+  return Math.pow((velocity * area) * params.manningN / (kn * area * Math.pow(hydraulicRadius, 2/3)), 2);
 }
 
 /**
@@ -312,7 +344,7 @@ export function calculateSpecificEnergy(
   velocity: number, 
   params: ChannelParams
 ): number {
-  const g = params.units === 'metric' ? G : G_IMPERIAL;
+  const g = params.units === 'imperial' ? G_IMPERIAL : G;
   return depth + (velocity ** 2) / (2 * g);
 }
 
@@ -324,7 +356,7 @@ export function calculateSequentialDepths(
   froudeNumber: number,
   params: ChannelParams
 ): number {
-  if (params.type !== ChannelType.RECTANGULAR) {
+  if (params.channelType !== 'rectangular') {
     throw new Error("Sequential depths calculation is implemented only for rectangular channels");
   }
   
@@ -335,7 +367,7 @@ export function calculateSequentialDepths(
 /**
  * Calculates the water surface profile using the standard step method
  */
-export function calculateWaterSurfaceProfile(params: ChannelParams): CalculationResults {
+export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfaceResults {
   // Calculate critical and normal depths
   const criticalDepth = calculateCriticalDepth(params);
   const normalDepth = calculateNormalDepth(params);
@@ -349,11 +381,11 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): Calculation
   
   if (channelType === "mild") {
     // For mild channels, start from downstream with critical depth
-    initialDepth = criticalDepth;
+    initialDepth = params.downstreamDepth || criticalDepth;
     direction = 'upstream';
   } else {
     // For steep channels, start from upstream with normal depth
-    initialDepth = normalDepth;
+    initialDepth = params.upstreamDepth || normalDepth;
     direction = 'downstream';
   }
   
@@ -364,7 +396,7 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): Calculation
   const flowProfile: FlowDepthPoint[] = [];
   
   // Variables to track hydraulic jump
-  let hydraulicJump: CalculationResults['hydraulicJump'] | undefined;
+  let hydraulicJump: HydraulicJumpDetails | undefined;
   let isChoking = false;
   
   // Initial depth and position
@@ -527,26 +559,25 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): Calculation
  * Helper function to calculate cross-sectional area
  */
 function calculateArea(depth: number, params: ChannelParams): number {
-  switch(params.type) {
-    case ChannelType.RECTANGULAR:
-      if (!params.bottomWidth) throw new Error("Bottom width required for rectangular channel");
+  switch(params.channelType) {
+    case 'rectangular':
       return params.bottomWidth * depth;
       
-    case ChannelType.TRAPEZOIDAL:
-      if (!params.bottomWidth || !params.sideSlope) 
-        throw new Error("Bottom width and side slope required for trapezoidal channel");
+    case 'trapezoidal':
+      if (!params.sideSlope) 
+        throw new Error("Side slope required for trapezoidal channel");
       return (params.bottomWidth + params.sideSlope * depth) * depth;
       
-    case ChannelType.TRIANGULAR:
+    case 'triangular':
       if (!params.sideSlope) throw new Error("Side slope required for triangular channel");
       return params.sideSlope * depth ** 2;
       
-    case ChannelType.CIRCULAR:
+    case 'circular':
       if (!params.diameter) throw new Error("Diameter required for circular channel");
       const theta = 2 * Math.acos(1 - 2 * depth / params.diameter);
       return (params.diameter ** 2 / 8) * (theta - Math.sin(theta));
       
     default:
-      throw new Error("Unsupported channel type");
+      throw new Error(`Unsupported channel type: ${params.channelType}`);
   }
 }

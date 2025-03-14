@@ -1,4 +1,4 @@
-import { CalculationResult, ChannelParameters } from '../stores/slices/calculatorSlice';
+import { CalculationResult, ChannelParams } from '../features/calculator/stores/calculatorSlice';
 
 /**
  * Service for exporting calculation results in various formats
@@ -10,7 +10,7 @@ export class ExportService {
    * @param params Channel parameters
    * @returns CSV string
    */
-  static exportToCSV(results: CalculationResult[], params: ChannelParameters): string {
+  static exportToCSV(results: CalculationResult[], params: ChannelParams): string {
     // Create header row
     const headers = [
       'Station (m)',
@@ -77,9 +77,9 @@ export class ExportService {
    * @param params Channel parameters
    * @returns JSON string
    */
-  static exportToJSON(results: CalculationResult[], params: ChannelParameters): string {
+  static exportToJSON(results: CalculationResult[], params: ChannelParams): string {
     const exportData = {
-      channelParameters: params,
+      channelParams: params,
       results: results
     };
     
@@ -116,7 +116,7 @@ export class ExportService {
    * @param params Channel parameters
    * @returns HTML string with the report
    */
-  static generateReport(results: CalculationResult[], params: ChannelParameters): string {
+  static generateReport(results: CalculationResult[], params: ChannelParams): string {
     // Extract key results
     const criticalDepth = results[0].criticalDepth || 0;
     const normalDepth = results[0].normalDepth || 0;

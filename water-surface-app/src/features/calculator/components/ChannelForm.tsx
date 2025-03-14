@@ -2,62 +2,60 @@ import React from 'react';
 import { ChannelParams } from '../stores/calculatorSlice';
 
 interface ChannelFormProps {
-  channelType: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular';
-  channelParameters: ChannelParams;
+  channelParams: ChannelParams;
   isCalculating: boolean;
   onChannelTypeChange: (type: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular') => void;
-  onParametersChange: (params: Partial<ChannelParams>) => void;
+  onParamsChange: (params: Partial<ChannelParams>) => void;
   onCalculate: () => void;
   onReset: () => void;
 }
 
 const ChannelForm: React.FC<ChannelFormProps> = ({
-  channelType,
-  channelParameters,
+  channelParams,
   isCalculating,
   onChannelTypeChange,
-  onParametersChange,
+  onParamsChange,
   onCalculate,
   onReset
 }) => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    onParametersChange({ [name]: parseFloat(value) });
+    onParamsChange({ [name]: parseFloat(value) });
   };
 
   const handleBoundaryConditionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { value } = e.target;
     
     // Safe access to critical/normal depth with fallbacks
-    const criticalDepth = channelParameters.criticalDepth || 0;
-    const normalDepth = channelParameters.normalDepth || 0;
+    const criticalDepth = channelParams.criticalDepth || 0;
+    const normalDepth = channelParams.normalDepth || 0;
     
     if (value === 'critical-downstream') {
-      onParametersChange({ 
+      onParamsChange({ 
         upstreamDepth: undefined,
         downstreamDepth: criticalDepth > 0 ? criticalDepth : undefined 
       });
     } else if (value === 'normal-upstream') {
-      onParametersChange({ 
+      onParamsChange({ 
         upstreamDepth: normalDepth > 0 ? normalDepth : undefined,
         downstreamDepth: undefined 
       });
     } else if (value === 'custom') {
       // Keep existing values if they exist, otherwise initialize with reasonable defaults
-      onParametersChange({
-        upstreamDepth: channelParameters.upstreamDepth || normalDepth || 1.0,
-        downstreamDepth: channelParameters.downstreamDepth || criticalDepth || 0.5
+      onParamsChange({
+        upstreamDepth: channelParams.upstreamDepth || normalDepth || 1.0,
+        downstreamDepth: channelParams.downstreamDepth || criticalDepth || 0.5
       });
     }
   };
 
   // Determine the current boundary condition type
   const getBoundaryConditionType = () => {
-    if (channelParameters.downstreamDepth && !channelParameters.upstreamDepth) {
+    if (channelParams.downstreamDepth && !channelParams.upstreamDepth) {
       return 'critical-downstream';
-    } else if (channelParameters.upstreamDepth && !channelParameters.downstreamDepth) {
+    } else if (channelParams.upstreamDepth && !channelParams.downstreamDepth) {
       return 'normal-upstream';
-    } else if (channelParameters.upstreamDepth && channelParameters.downstreamDepth) {
+    } else if (channelParams.upstreamDepth && channelParams.downstreamDepth) {
       return 'custom';
     }
     // Default if no boundary conditions set
@@ -76,7 +74,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
             <div
               onClick={() => onChannelTypeChange('rectangular')}
               className={`cursor-pointer p-4 rounded-lg border-2 ${
-                channelType === 'rectangular' 
+                channelParams.channelType === 'rectangular' 
                   ? 'border-primary-500 bg-primary-50' 
                   : 'border-gray-200 hover:border-gray-300'
               }`}
@@ -92,7 +90,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
             <div
               onClick={() => onChannelTypeChange('trapezoidal')}
               className={`cursor-pointer p-4 rounded-lg border-2 ${
-                channelType === 'trapezoidal' 
+                channelParams.channelType === 'trapezoidal' 
                   ? 'border-primary-500 bg-primary-50' 
                   : 'border-gray-200 hover:border-gray-300'
               }`}
@@ -108,7 +106,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
             <div
               onClick={() => onChannelTypeChange('triangular')}
               className={`cursor-pointer p-4 rounded-lg border-2 ${
-                channelType === 'triangular' 
+                channelParams.channelType === 'triangular' 
                   ? 'border-primary-500 bg-primary-50' 
                   : 'border-gray-200 hover:border-gray-300'
               }`}
@@ -124,7 +122,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
             <div
               onClick={() => onChannelTypeChange('circular')}
               className={`cursor-pointer p-4 rounded-lg border-2 ${
-                channelType === 'circular' 
+                channelParams.channelType === 'circular' 
                   ? 'border-primary-500 bg-primary-50' 
                   : 'border-gray-200 hover:border-gray-300'
               }`}
@@ -144,7 +142,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
           <h3 className="text-lg font-medium mb-3">Geometry Parameters</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Bottom Width - for rectangular and trapezoidal */}
-            {(channelType === 'rectangular' || channelType === 'trapezoidal') && (
+            {(channelParams.channelType === 'rectangular' || channelParams.channelType === 'trapezoidal') && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Bottom Width (m)
@@ -152,7 +150,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
                 <input
                   type="number"
                   name="bottomWidth"
-                  value={channelParameters.bottomWidth}
+                  value={channelParams.bottomWidth}
                   onChange={handleInputChange}
                   min="0.1"
                   step="0.1"
@@ -162,7 +160,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
             )}
             
             {/* Side Slope - for trapezoidal and triangular */}
-            {(channelType === 'trapezoidal' || channelType === 'triangular') && (
+            {(channelParams.channelType === 'trapezoidal' || channelParams.channelType === 'triangular') && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Side Slope (H:V)
@@ -170,7 +168,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
                 <input
                   type="number"
                   name="sideSlope"
-                  value={channelParameters.sideSlope || 1}
+                  value={channelParams.sideSlope || 1}
                   onChange={handleInputChange}
                   min="0.1"
                   step="0.1"
@@ -180,7 +178,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
             )}
             
             {/* Diameter - for circular */}
-            {channelType === 'circular' && (
+            {channelParams.channelType === 'circular' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Diameter (m)
@@ -188,7 +186,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
                 <input
                   type="number"
                   name="diameter"
-                  value={channelParameters.diameter || 1.0}
+                  value={channelParams.diameter || 1.0}
                   onChange={handleInputChange}
                   min="0.1"
                   step="0.1"
@@ -210,7 +208,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
               <input
                 type="number"
                 name="manningN"
-                value={channelParameters.manningN}
+                value={channelParams.manningN}
                 onChange={handleInputChange}
                 min="0.001"
                 step="0.001"
@@ -225,7 +223,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
               <input
                 type="number"
                 name="channelSlope"
-                value={channelParameters.channelSlope}
+                value={channelParams.channelSlope}
                 onChange={handleInputChange}
                 min="0.0001"
                 step="0.0001"
@@ -240,7 +238,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
               <input
                 type="number"
                 name="discharge"
-                value={channelParameters.discharge}
+                value={channelParams.discharge}
                 onChange={handleInputChange}
                 min="0.1"
                 step="0.1"
@@ -255,7 +253,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
               <input
                 type="number"
                 name="length"
-                value={channelParameters.length}
+                value={channelParams.length}
                 onChange={handleInputChange}
                 min="10"
                 step="10"
@@ -294,7 +292,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
                 <input
                   type="number"
                   name="upstreamDepth"
-                  value={channelParameters.upstreamDepth || ''}
+                  value={channelParams.upstreamDepth || ''}
                   onChange={handleInputChange}
                   min="0.01"
                   step="0.01"
@@ -309,7 +307,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
                 <input
                   type="number"
                   name="downstreamDepth"
-                  value={channelParameters.downstreamDepth || ''}
+                  value={channelParams.downstreamDepth || ''}
                   onChange={handleInputChange}
                   min="0.01"
                   step="0.01"
@@ -344,6 +342,4 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
       </div>
     </div>
   );
-};
-
-export default ChannelForm;
+}

@@ -1,13 +1,14 @@
 import React, { useState, useEffect} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
-  updateChannelParameters, 
+  updateChannelParams, 
   setChannelType,
   startCalculation, 
   calculationSuccess, 
   calculationFailure,
   resetCalculator,
-  CalculationResult
+  CalculationResult,
+  ChannelParams
 } from './stores/calculatorSlice';
 import { RootState } from '../../stores';
 
@@ -40,8 +41,7 @@ const getWorker = () => {
 const Calculator: React.FC = () => {
   const dispatch = useDispatch();
   const { 
-    channelType, 
-    channelParameters, 
+    channelParams, 
     results, 
     isCalculating, 
     error 
@@ -76,7 +76,10 @@ const Calculator: React.FC = () => {
       const { status, data, error: workerError } = event.data;
       
       if (status === 'success') {
-        dispatch(calculationSuccess(data.results));
+        dispatch(calculationSuccess({
+          results: data.results,
+          hydraulicJump: data.hydraulicJump
+        }));
         setActiveTab('results');
       } else {
         dispatch(calculationFailure(workerError || 'Calculation failed'));
@@ -108,7 +111,7 @@ const Calculator: React.FC = () => {
       // Use web worker for intensive calculations if available
       if (worker) {
         worker.postMessage({
-          params: channelParameters
+          params: channelParams
         });
         
         // Fallback with timeout in case worker doesn't respond
@@ -133,8 +136,8 @@ const Calculator: React.FC = () => {
   // Perform calculation on main thread as fallback
   const performMainThreadCalculation = async () => {
     try {
-      const { results } = await calculateWaterSurfaceProfile(channelParameters);
-      dispatch(calculationSuccess(results));
+      const { results, hydraulicJump } = await calculateWaterSurfaceProfile(channelParams);
+      dispatch(calculationSuccess({ results, hydraulicJump }));
       setActiveTab('results');
     } catch (err) {
       dispatch(calculationFailure(err instanceof Error ? err.message : 'An unknown error occurred'));
@@ -155,15 +158,15 @@ const Calculator: React.FC = () => {
     
     switch (format) {
       case 'csv':
-        const csvContent = ExportService.exportToCSV(results, channelParameters);
+        const csvContent = ExportService.exportToCSV(results, channelParams);
         ExportService.downloadCSV(csvContent);
         break;
       case 'json':
-        const jsonContent = ExportService.exportToJSON(results, channelParameters);
+        const jsonContent = ExportService.exportToJSON(results, channelParams);
         ExportService.downloadJSON(jsonContent);
         break;
       case 'report':
-        const reportContent = ExportService.generateReport(results, channelParameters);
+        const reportContent = ExportService.generateReport(results, channelParams);
         ExportService.downloadReport(reportContent);
         break;
     }
@@ -257,11 +260,10 @@ const Calculator: React.FC = () => {
       <div>
         {activeTab === 'input' && (
           <ChannelForm 
-            channelType={channelType}
-            channelParameters={channelParameters}
+            channelParams={channelParams}
             isCalculating={isCalculating}
             onChannelTypeChange={(type) => dispatch(setChannelType(type))}
-            onParametersChange={(params) => dispatch(updateChannelParameters(params))}
+            onParamsChange={(params) => dispatch(updateChannelParams(params))}
             onCalculate={handleCalculate}
             onReset={handleReset}
           />
@@ -341,7 +343,7 @@ const Calculator: React.FC = () => {
             
             <CrossSectionView
               selectedResult={selectedResult}
-              channelType={channelType}
+              channelType={channelParams.channelType}
             />
           </div>
         )}

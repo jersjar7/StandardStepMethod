@@ -14,6 +14,7 @@ export interface ChannelParams {
   downstreamDepth?: number;
   criticalDepth?: number;
   normalDepth?: number;
+  units?: 'metric' | 'imperial'; // Adding units option
 }
 
 export interface CalculationResult {
@@ -30,81 +31,85 @@ export interface CalculationResult {
   normalDepth?: number;
 }
 
+export interface HydraulicJump {
+  occurs: boolean;
+  station?: number;
+  upstreamDepth?: number;
+  downstreamDepth?: number;
+}
+
 interface CalculatorState {
-  channelType: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular';
-  channelParameters: ChannelParams;
+  channelParams: ChannelParams;
   results: CalculationResult[];
+  hydraulicJump?: HydraulicJump;
   isCalculating: boolean;
   error: string | null;
 }
 
 const initialState: CalculatorState = {
-  channelType: 'trapezoidal',
-  channelParameters: {
-    channelType: 'trapezoidal', // Make sure this matches the state channelType
+  channelParams: {
+    channelType: 'trapezoidal',
     bottomWidth: 10,
     sideSlope: 2, // Horizontal:Vertical
     manningN: 0.03,
     channelSlope: 0.001,
     discharge: 100,
-    length: 1000
+    length: 1000,
+    units: 'metric'
   },
   results: [],
   isCalculating: false,
   error: null
 };
 
-
 export const calculatorSlice = createSlice({
   name: 'calculator',
   initialState,
   reducers: {
     setChannelType: (state, action: PayloadAction<'rectangular' | 'trapezoidal' | 'triangular' | 'circular'>) => {
-      state.channelType = action.payload;
-      
       // Update channel parameters based on type
       switch (action.payload) {
         case 'rectangular':
-          state.channelParameters = {
-            ...state.channelParameters,
-            channelType: action.payload, // Update this too
-            bottomWidth: state.channelParameters.bottomWidth || 10,
+          state.channelParams = {
+            ...state.channelParams,
+            channelType: action.payload,
+            bottomWidth: state.channelParams.bottomWidth || 10,
             sideSlope: undefined,
             diameter: undefined
           };
           break;
         case 'trapezoidal':
-          state.channelParameters = {
-            ...state.channelParameters,
-            channelType: action.payload, // Update this too
-            bottomWidth: state.channelParameters.bottomWidth || 10,
-            sideSlope: state.channelParameters.sideSlope || 2,
+          state.channelParams = {
+            ...state.channelParams,
+            channelType: action.payload,
+            bottomWidth: state.channelParams.bottomWidth || 10,
+            sideSlope: state.channelParams.sideSlope || 2,
             diameter: undefined
           };
           break;
         case 'triangular':
-          state.channelParameters = {
-            ...state.channelParameters,
-            channelType: action.payload, // Update this too
+          state.channelParams = {
+            ...state.channelParams,
+            channelType: action.payload,
             bottomWidth: 0,
-            sideSlope: state.channelParameters.sideSlope || 1,
+            sideSlope: state.channelParams.sideSlope || 1,
             diameter: undefined
           };
           break;
         case 'circular':
-          state.channelParameters = {
-            ...state.channelParameters,
-            channelType: action.payload, // Update this too
+          state.channelParams = {
+            ...state.channelParams,
+            channelType: action.payload,
             bottomWidth: 0,
             sideSlope: undefined,
-            diameter: state.channelParameters.diameter || 1.0
+            diameter: state.channelParams.diameter || 1.0
           };
           break;
       }
     },
-    updateChannelParameters: (state, action: PayloadAction<Partial<ChannelParams>>) => {
-      state.channelParameters = {
-        ...state.channelParameters,
+    updateChannelParams: (state, action: PayloadAction<Partial<ChannelParams>>) => {
+      state.channelParams = {
+        ...state.channelParams,
         ...action.payload
       };
     },
@@ -112,15 +117,19 @@ export const calculatorSlice = createSlice({
       state.isCalculating = true;
       state.error = null;
     },
-    calculationSuccess: (state, action: PayloadAction<CalculationResult[]>) => {
-      state.results = action.payload;
+    calculationSuccess: (state, action: PayloadAction<{
+      results: CalculationResult[], 
+      hydraulicJump?: HydraulicJump
+    }>) => {
+      state.results = action.payload.results;
+      state.hydraulicJump = action.payload.hydraulicJump;
       state.isCalculating = false;
       
       // Update channel parameters with calculated critical and normal depths
-      if (action.payload.length > 0) {
-        const firstResult = action.payload[0];
-        state.channelParameters.criticalDepth = firstResult.criticalDepth;
-        state.channelParameters.normalDepth = firstResult.normalDepth;
+      if (action.payload.results.length > 0) {
+        const firstResult = action.payload.results[0];
+        state.channelParams.criticalDepth = firstResult.criticalDepth;
+        state.channelParams.normalDepth = firstResult.normalDepth;
       }
     },
     calculationFailure: (state, action: PayloadAction<string>) => {
@@ -129,6 +138,7 @@ export const calculatorSlice = createSlice({
     },
     resetCalculator: (state) => {
       state.results = [];
+      state.hydraulicJump = undefined;
       state.error = null;
     }
   }
@@ -136,7 +146,7 @@ export const calculatorSlice = createSlice({
 
 export const {
   setChannelType,
-  updateChannelParameters,
+  updateChannelParams,
   startCalculation,
   calculationSuccess,
   calculationFailure,
