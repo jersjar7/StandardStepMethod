@@ -4,6 +4,11 @@
  * preventing the main UI from freezing during computation.
  */
 
+// In standardStepWorker.ts
+import { calculateWaterSurfaceProfile } from '../../features/calculator/utils/hydraulics';
+
+// Then use these imported functions instead of local implementations
+
 interface ChannelParameters {
     channelType: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular';
     bottomWidth: number;
@@ -66,96 +71,6 @@ interface ChannelParameters {
       });
     }
   });
-  
-  /**
-   * Calculate the water surface profile using the standard step method
-   */
-  function calculateWaterSurfaceProfile(params: ChannelParameters): WorkerOutput {
-    // Calculate critical and normal depths
-    const criticalDepth = calculateCriticalDepth(params);
-    const normalDepth = calculateNormalDepth(params);
-    
-    // Determine flow regime and step direction
-    const isMild = normalDepth > criticalDepth;
-    const stepDirection = isMild ? 1 : -1; // 1 for upstream, -1 for downstream
-    
-    // Set initial conditions based on regime
-    let initialStation = stepDirection > 0 ? 0 : params.length;
-    let initialDepth: number;
-    
-    if (isMild) {
-      // For mild slope, start from downstream
-      initialDepth = params.downstreamDepth || criticalDepth;
-    } else {
-      // For steep slope, start from upstream
-      initialDepth = params.upstreamDepth || normalDepth;
-    }
-    
-    // Calculate step size
-    const numSteps = 100; // Number of calculation points
-    const deltaX = params.length / numSteps;
-    
-    // Initialize results array
-    const results: CalculationResult[] = [];
-    
-    // Perform standard step calculations
-    let currentStation = initialStation;
-    let currentDepth = initialDepth;
-    
-    while ((stepDirection > 0 && currentStation <= params.length) || 
-            (stepDirection < 0 && currentStation >= 0)) {
-      // Calculate hydraulic properties at current depth
-      const sectionProps = calculateSectionProperties(currentDepth, params);
-      const velocity = params.discharge / sectionProps.area;
-      const froudeNumber = calculateFroudeNumber(currentDepth, velocity, sectionProps.topWidth);
-      const specificEnergy = currentDepth + (velocity * velocity) / (2 * 9.81);
-      
-      // Store result
-      results.push({
-        station: currentStation,
-        depth: currentDepth,
-        velocity,
-        area: sectionProps.area,
-        topWidth: sectionProps.topWidth,
-        wetPerimeter: sectionProps.wetPerimeter,
-        hydraulicRadius: sectionProps.hydraulicRadius,
-        energy: specificEnergy,
-        froudeNumber,
-        criticalDepth,
-        normalDepth
-      });
-      
-      // Move to next station
-      currentStation += stepDirection * deltaX;
-      
-      // Skip if we've reached the end of the channel
-      if ((stepDirection > 0 && currentStation > params.length) || 
-          (stepDirection < 0 && currentStation < 0)) {
-        break;
-      }
-      
-      // Calculate next depth using standard step method
-      currentDepth = calculateNextDepth(
-        currentDepth, 
-        velocity, 
-        specificEnergy, 
-        params, 
-        deltaX, 
-        stepDirection
-      );
-    }
-    
-    // Sort results by station
-    results.sort((a, b) => a.station - b.station);
-    
-    // Check for hydraulic jump
-    const hydraulicJump = detectHydraulicJump(results);
-    
-    return {
-      results,
-      hydraulicJump
-    };
-  }
   
   /**
    * Calculate critical depth for a channel

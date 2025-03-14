@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
   updateChannelParameters, 
@@ -133,7 +133,7 @@ const Calculator: React.FC = () => {
   // Perform calculation on main thread as fallback
   const performMainThreadCalculation = async () => {
     try {
-      const { results, hydraulicJump } = await calculateWaterSurfaceProfile(channelParameters);
+      const { results } = await calculateWaterSurfaceProfile(channelParameters);
       dispatch(calculationSuccess(results));
       setActiveTab('results');
     } catch (err) {

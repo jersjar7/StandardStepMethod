@@ -1,12 +1,12 @@
 import React from 'react';
-import { ChannelParameters, CalculationResult } from '../stores/calculatorSlice';
+import { ChannelParams } from '../stores/calculatorSlice';
 
 interface ChannelFormProps {
   channelType: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular';
-  channelParameters: ChannelParameters;
+  channelParameters: ChannelParams;
   isCalculating: boolean;
   onChannelTypeChange: (type: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular') => void;
-  onParametersChange: (params: Partial<ChannelParameters>) => void;
+  onParametersChange: (params: Partial<ChannelParams>) => void;
   onCalculate: () => void;
   onReset: () => void;
 }

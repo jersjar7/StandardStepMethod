@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ChannelParameters, CalculationResult } from '../stores/calculatorSlice';
+import { ChannelParams, CalculationResult } from '../stores/calculatorSlice';
 
 /**
  * Hook for handling hydraulic calculations
@@ -11,7 +11,7 @@ export const useChannelCalculations = () => {
   /**
    * Calculate the water surface profile for a given channel
    */
-  const calculateWaterSurfaceProfile = useCallback(async (params: ChannelParameters): Promise<{
+  const calculateWaterSurfaceProfile = useCallback(async (params: ChannelParams): Promise<{
     results: CalculationResult[];
     hydraulicJump: {
       occurs: boolean;
@@ -119,7 +119,7 @@ export const useChannelCalculations = () => {
   /**
    * Calculate section properties based on channel type
    */
-  const calculateSectionProperties = (depth: number, params: ChannelParameters): {
+  const calculateSectionProperties = (depth: number, params: ChannelParams): {
     area: number;
     wetPerimeter: number;
     topWidth: number;
@@ -142,7 +142,7 @@ export const useChannelCalculations = () => {
   /**
    * Calculate properties for rectangular section
    */
-  const calculateRectangularSection = (depth: number, params: ChannelParameters): {
+  const calculateRectangularSection = (depth: number, params: ChannelParams): {
     area: number;
     wetPerimeter: number;
     topWidth: number;
@@ -164,7 +164,7 @@ export const useChannelCalculations = () => {
   /**
    * Calculate properties for trapezoidal section
    */
-  const calculateTrapezoidalSection = (depth: number, params: ChannelParameters): {
+  const calculateTrapezoidalSection = (depth: number, params: ChannelParams): {
     area: number;
     wetPerimeter: number;
     topWidth: number;
@@ -187,7 +187,7 @@ export const useChannelCalculations = () => {
   /**
    * Calculate properties for triangular section
    */
-  const calculateTriangularSection = (depth: number, params: ChannelParameters): {
+  const calculateTriangularSection = (depth: number, params: ChannelParams): {
     area: number;
     wetPerimeter: number;
     topWidth: number;
@@ -210,7 +210,7 @@ export const useChannelCalculations = () => {
   /**
    * Calculate properties for circular section
    */
-  const calculateCircularSection = (depth: number, params: ChannelParameters): {
+  const calculateCircularSection = (depth: number, params: ChannelParams): {
     area: number;
     wetPerimeter: number;
     topWidth: number;
@@ -245,7 +245,7 @@ export const useChannelCalculations = () => {
   /**
    * Calculate critical depth for a channel
    */
-  const calculateCriticalDepth = (params: ChannelParameters): number => {
+  const calculateCriticalDepth = (params: ChannelParams): number => {
     const g = 9.81; // Gravitational acceleration
     const q = params.discharge; // Discharge
     
@@ -316,7 +316,7 @@ export const useChannelCalculations = () => {
   /**
    * Calculate normal depth using Manning's equation
    */
-  const calculateNormalDepth = (params: ChannelParameters): number => {
+  const calculateNormalDepth = (params: ChannelParams): number => {
     const { manningN, channelSlope, discharge } = params;
     
     // Use iterative approach to solve Manning's equation
@@ -363,7 +363,7 @@ export const useChannelCalculations = () => {
     currentDepth: number, 
     velocity: number, 
     specificEnergy: number, 
-    params: ChannelParameters, 
+    params: ChannelParams, 
     deltaX: number, 
     stepDirection: number
   ): number => {

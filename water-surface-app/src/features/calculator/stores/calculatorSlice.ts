@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 // Define types for our state
-export interface ChannelParameters {
+export interface ChannelParams {
   channelType: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular';
   bottomWidth: number;
   sideSlope?: number;
@@ -32,7 +32,7 @@ export interface CalculationResult {
 
 interface CalculatorState {
   channelType: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular';
-  channelParameters: ChannelParameters;
+  channelParameters: ChannelParams;
   results: CalculationResult[];
   isCalculating: boolean;
   error: string | null;
@@ -102,7 +102,7 @@ export const calculatorSlice = createSlice({
           break;
       }
     },
-    updateChannelParameters: (state, action: PayloadAction<Partial<ChannelParameters>>) => {
+    updateChannelParameters: (state, action: PayloadAction<Partial<ChannelParams>>) => {
       state.channelParameters = {
         ...state.channelParameters,
         ...action.payload
