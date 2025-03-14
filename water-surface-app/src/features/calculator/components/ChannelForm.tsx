@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChannelParameters } from '../stores/calculatorSlice';
+import { ChannelParameters, CalculationResult } from '../stores/calculatorSlice';
 
 interface ChannelFormProps {
   channelType: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular';

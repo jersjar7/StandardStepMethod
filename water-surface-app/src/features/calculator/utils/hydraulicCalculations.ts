@@ -1,4 +1,4 @@
-import { ChannelParameters, CalculationResult } from '../../../stores/slices/calculatorSlice';
+import { ChannelParameters, CalculationResult } from '../stores/calculatorSlice';
 
 /**
  * Calculate hydraulic properties for a trapezoidal channel section
@@ -9,7 +9,8 @@ export function calculateTrapezoidalSection(depth: number, params: ChannelParame
   topWidth: number;
   hydraulicRadius: number;
 } {
-  const { bottomWidth, sideSlope } = params;
+  // Extract properties with defaults to handle optional values
+  const { bottomWidth = 0, sideSlope = 0 } = params;
   
   // Area calculation
   const area = (bottomWidth + sideSlope * depth) * depth;
@@ -35,7 +36,7 @@ export function calculateTrapezoidalSection(depth: number, params: ChannelParame
  * Calculate the critical depth for a trapezoidal channel
  */
 export function calculateCriticalDepth(params: ChannelParameters): number {
-  const { bottomWidth, sideSlope, discharge } = params;
+  const { bottomWidth = 0, sideSlope = 0, discharge } = params;
   const g = 9.81; // gravitational acceleration in m/s²
   
   // For trapezoidal channels, we need to use iterative method
@@ -70,7 +71,7 @@ export function calculateCriticalDepth(params: ChannelParameters): number {
  * Calculate the normal depth for a trapezoidal channel using Manning's equation
  */
 export function calculateNormalDepth(params: ChannelParameters): number {
-  const { bottomWidth, sideSlope, manningN, channelSlope, discharge } = params;
+  const { manningN, channelSlope, discharge } = params;
   
   // For trapezoidal channels, we need to use iterative method
   let yn = 0.1; // Initial guess
@@ -105,14 +106,14 @@ export function calculateNormalDepth(params: ChannelParameters): number {
  */
 export function calculateWaterSurfaceProfile(params: ChannelParameters): CalculationResult[] {
   const results: CalculationResult[] = [];
-  const { length, discharge, channelSlope } = params;
+  const { length, discharge } = params;
   
   // Calculate critical and normal depths
   const criticalDepth = calculateCriticalDepth(params);
   const normalDepth = calculateNormalDepth(params);
   
   // Determine channel type (mild, steep, critical)
-  const channelType = normalDepth > criticalDepth ? 'mild' : 
+  const flowRegime = normalDepth > criticalDepth ? 'mild' : 
                      normalDepth < criticalDepth ? 'steep' : 'critical';
   
   // Determine step direction and initial depth based on channel type
@@ -120,7 +121,7 @@ export function calculateWaterSurfaceProfile(params: ChannelParameters): Calcula
   let initialDepth = 0;
   let deltaX = 50; // Step size in m or ft
   
-  if (channelType === 'mild') {
+  if (flowRegime === 'mild') {
     // For mild channels, we typically start from downstream
     stepDirection = 1;
     initialDepth = params.downstreamDepth || criticalDepth;
@@ -165,7 +166,7 @@ export function calculateWaterSurfaceProfile(params: ChannelParameters): Calcula
     // Compute next depth using energy equation
     if (currentStation !== (stepDirection > 0 ? length : 0)) {
       // Calculate friction slope using Manning's equation
-      const frictionSlope = Math.pow(discharge * manningN / 
+      const frictionSlope = Math.pow(discharge * params.manningN / 
                            (section.area * Math.pow(section.hydraulicRadius, 2/3)), 2);
       
       // Calculate average friction slope
@@ -210,16 +211,12 @@ export function calculateWaterSurfaceProfile(params: ChannelParameters): Calcula
 /**
  * Determine if a hydraulic jump would occur and its location
  */
-export function calculateHydraulicJump(params: ChannelParameters, results: CalculationResult[]): {
+export function calculateHydraulicJump(results: CalculationResult[]): {
   occurs: boolean;
   station?: number;
   upstreamDepth?: number;
   downstreamDepth?: number;
 } {
-  const { channelSlope, discharge } = params;
-  const criticalDepth = calculateCriticalDepth(params);
-  const normalDepth = calculateNormalDepth(params);
-  
   // Check if jump is possible (need supercritical flow changing to subcritical)
   let jumpFound = false;
   let jumpStation = 0;
@@ -267,7 +264,7 @@ export function runCalculations(params: ChannelParameters): {
   const results = calculateWaterSurfaceProfile(params);
   
   // Check for hydraulic jump
-  const hydraulicJump = calculateHydraulicJump(params, results);
+  const hydraulicJump = calculateHydraulicJump(results);
   
   return {
     results,

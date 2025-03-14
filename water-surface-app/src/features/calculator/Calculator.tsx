@@ -9,7 +9,7 @@ import {
   resetCalculator,
   CalculationResult
 } from './stores/calculatorSlice';
-import { RootState } from '../stores';
+import { RootState } from '../../stores';
 
 // Import components
 import ChannelForm from './components/ChannelForm';

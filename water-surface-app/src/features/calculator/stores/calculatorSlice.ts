@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 // Define types for our state
 export interface ChannelParameters {
+  channelType: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular';
   bottomWidth: number;
   sideSlope?: number;
   diameter?: number;
@@ -40,6 +41,7 @@ interface CalculatorState {
 const initialState: CalculatorState = {
   channelType: 'trapezoidal',
   channelParameters: {
+    channelType: 'trapezoidal', // Make sure this matches the state channelType
     bottomWidth: 10,
     sideSlope: 2, // Horizontal:Vertical
     manningN: 0.03,
@@ -51,6 +53,7 @@ const initialState: CalculatorState = {
   isCalculating: false,
   error: null
 };
+
 
 export const calculatorSlice = createSlice({
   name: 'calculator',
@@ -64,6 +67,7 @@ export const calculatorSlice = createSlice({
         case 'rectangular':
           state.channelParameters = {
             ...state.channelParameters,
+            channelType: action.payload, // Update this too
             bottomWidth: state.channelParameters.bottomWidth || 10,
             sideSlope: undefined,
             diameter: undefined
@@ -72,6 +76,7 @@ export const calculatorSlice = createSlice({
         case 'trapezoidal':
           state.channelParameters = {
             ...state.channelParameters,
+            channelType: action.payload, // Update this too
             bottomWidth: state.channelParameters.bottomWidth || 10,
             sideSlope: state.channelParameters.sideSlope || 2,
             diameter: undefined
@@ -80,7 +85,8 @@ export const calculatorSlice = createSlice({
         case 'triangular':
           state.channelParameters = {
             ...state.channelParameters,
-            bottomWidth: undefined,
+            channelType: action.payload, // Update this too
+            bottomWidth: 0,
             sideSlope: state.channelParameters.sideSlope || 1,
             diameter: undefined
           };
@@ -88,7 +94,8 @@ export const calculatorSlice = createSlice({
         case 'circular':
           state.channelParameters = {
             ...state.channelParameters,
-            bottomWidth: undefined,
+            channelType: action.payload, // Update this too
+            bottomWidth: 0,
             sideSlope: undefined,
             diameter: state.channelParameters.diameter || 1.0
           };
