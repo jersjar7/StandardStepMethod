@@ -1,85 +1,120 @@
 water-surface-app/
-├── public/                                # Static files
-│   └── vite.svg                           # Favicon
-├── src/                                   # Source code
-│   ├── api/                               # [RECOMMENDED] API services
-│   │   ├── httpClient.ts                  # Base API client with axios
-│   │   └── calculationApi.ts              # API for remote calculations (if needed)
-│   ├── assets/                            # Static assets
+├── public/                                     # Static files
+│   └── vite.svg                                # Favicon
+├── src/                                        # Source code
+│   ├── api/                                    # API services
+│   │   ├── httpClient.ts                       # Base API client with axios
+│   │   └── calculationApi.ts                   # API for remote calculations (if needed)
+│   ├── assets/                                 # Static assets
 │   │   └── react.svg
-│   ├── components/                        # Reusable UI components
-│   │   ├── ui/                            # [RECOMMENDED] Base UI components
-│   │   │   ├── Button.tsx                 # Reusable button component
-│   │   │   ├── Input.tsx                  # Reusable input component
-│   │   │   └── Select.tsx                 # Reusable select component
-│   │   └── common/                        # [RECOMMENDED] Common components
-│   │       ├── ErrorAlert.tsx             # Error display component
-│   │       └── LoadingSpinner.tsx         # Loading indicator
-│   ├── config/                            # [RECOMMENDED] App configuration
-│   │   └── constants.ts                   # Constants like gravitational acceleration
-│   ├── features/                          # Feature-based modules
-│   │   ├── calculator/                    # Water surface profile calculator feature
-│   │   │   ├── components/                # Calculator-specific components
-│   │   │   │   ├── ChannelForm.tsx        # ✓ EXISTING
-│   │   │   │   ├── CrossSectionView.tsx   # ✓ EXISTING
-│   │   │   │   ├── ProfileVisualization.tsx # ✓ EXISTING
-│   │   │   │   └── ResultsTable.tsx       # ✓ EXISTING
-│   │   │   ├── hooks/                     # Custom hooks for calculations
-│   │   │   │   └── useChannelCalculations.ts # ✓ EXISTING
-│   │   │   ├── stores/                    # Redux slices for calculator
-│   │   │   │   └── calculatorSlice.ts     # ✓ EXISTING
-│   │   │   ├── utils/                     # Calculation utilities
-│   │   │   │   └── hydraulics.ts          # ✓ EXISTING
-│   │   │   ├── types/                     # [RECOMMENDED] Type definitions
-│   │   │   │   └── calculator.types.ts    # Types for calculator feature
-│   │   │   ├── routes/                    # [RECOMMENDED] Feature routes
-│   │   │   │   └── index.tsx              # Router configuration for calculator
-│   │   │   └── Calculator.tsx             # ✓ EXISTING Main calculator component
-│   │   ├── documentation/                 # [RECOMMENDED] Documentation feature
+│   ├── components/                             # Reusable UI components
+│   │   ├── ui/                                 # Base UI components
+│   │   │   ├── Button.tsx                      # Reusable button component
+│   │   │   ├── Input.tsx                       # Reusable input component
+│   │   │   ├── Select.tsx                      # Reusable select component
+│   │   │   └── TabsContainer.tsx               # Generic tabs component
+│   │   └── common/                             # Common components
+│   │       ├── ErrorAlert.tsx                  # Error display component
+│   │       └── LoadingSpinner.tsx              # Loading indicator
+│   ├── config/                                 # App configuration
+│   │   ├── constants.ts                        # Constants like gravitational acceleration
+│   │   └── units.ts                            # Unit system handling
+│   ├── features/                               # Feature-based modules
+│   │   ├── calculator/                         # Water surface profile calculator feature
+│   │   │   ├── components/                     # Calculator-specific components
+│   │   │   │   ├── ChannelForm/                # Channel form components
+│   │   │   │   │   ├── ChannelForm.tsx         # Main form component
+│   │   │   │   │   ├── ChannelTypeSelector.tsx # Channel type selection
+│   │   │   │   │   ├── GeometryInputs.tsx      # Geometry parameters section
+│   │   │   │   │   ├── FlowInputs.tsx          # Flow parameters section
+│   │   │   │   │   └── BoundaryConditions.tsx  # Boundary conditions section
+│   │   │   │   ├── CalculatorTabs.tsx          # Tabs for calculator views
+│   │   │   │   ├── CalculationControls.tsx     # Calculate and reset buttons
+│   │   │   │   ├── CrossSectionView.tsx        # Cross-section visualization
+│   │   │   │   ├── ProfileVisualization.tsx    # Profile visualization
+│   │   │   │   ├── ResultsTable.tsx            # Results in tabular form
+│   │   │   │   ├── WaterSurfaceVisualization.tsx  # 3D water surface visualization
+│   │   │   │   └── ExportMenu.tsx              # Export functionality
+│   │   │   ├── hooks/                          # Custom hooks for calculations
+│   │   │   │   ├── useCalculation.ts           # Calculation process management
+│   │   │   │   ├── useChannelCalculations.ts   # Hydraulic calculations
+│   │   │   │   ├── useExport.ts                # Export functionality
+│   │   │   │   └── useResults.ts               # Results handling
+│   │   │   ├── stores/                         # Redux state management
+│   │   │   │   ├── types/                      # Type definitions
+│   │   │   │   │   ├── channelTypes.ts         # Channel parameter types
+│   │   │   │   │   └── resultTypes.ts          # Result and hydraulic jump types
+│   │   │   │   ├── calculatorActions.ts        # Action creators
+│   │   │   │   └── calculatorSlice.ts          # Redux slice for calculator
+│   │   │   ├── utils/                          # Calculation utilities
+│   │   │   │   ├── hydraulics/                 # Hydraulic calculations
+│   │   │   │   │   ├── channelGeometry.ts      # Area, wetted perimeter, top width
+│   │   │   │   │   ├── flowParameters.ts       # Froude, energy, friction slope
+│   │   │   │   │   ├── criticalFlow.ts         # Critical depth calculations
+│   │   │   │   │   ├── normalFlow.ts           # Normal depth calculations
+│   │   │   │   │   ├── standardStep.ts         # Standard step method
+│   │   │   │   │   ├── hydraulicJump.ts        # Hydraulic jump calculations
+│   │   │   │   │   └── index.ts                # Re-exports for compatibility
+│   │   │   │   └── helpers.ts                  # Helper functions
+│   │   │   ├── validators/                     # Input validation
+│   │   │   │   └── inputValidators.ts          # Validation functions
+│   │   │   └── Calculator.tsx                  # Main calculator component
+│   │   ├── documentation/                      # Documentation feature
 │   │   │   ├── components/
 │   │   │   ├── pages/
 │   │   │   └── routes/
-│   │   └── about/                         # [RECOMMENDED] About feature
+│   │   └── about/                              # About feature
 │   │       ├── components/
 │   │       ├── pages/
 │   │       └── routes/
-│   ├── hooks/                             # Global custom hooks
-│   │   └── useOutsideClick.ts             # [RECOMMENDED] for closing dropdowns
-│   ├── layouts/                           # Page layouts
-│   │   └── MainLayout.tsx                 # ✓ EXISTING
-│   ├── pages/                             # [RECOMMENDED] Top-level pages
-│   │   ├── HomePage.tsx                   # Home page
-│   │   ├── CalculatorPage.tsx             # Calculator page
-│   │   ├── DocumentationPage.tsx          # Documentation page
-│   │   └── AboutPage.tsx                  # About page
-│   ├── routes/                            # [RECOMMENDED] App routing
-│   │   └── index.tsx                      # Main router configuration
-│   ├── services/                          # Business logic services
-│   │   ├── exportService.ts               # ✓ EXISTING
-│   │   └── webWorkers/                    # Web workers
-│   │       └── standardStepWorker.ts      # ✓ EXISTING
-│   ├── stores/                            # Redux store configuration
-│   │   ├── index.ts                       # ✓ EXISTING store configuration
-│   │   └── hooks.ts                       # [RECOMMENDED] useAppDispatch & useAppSelector
-│   ├── styles/                            # Global styles
-│   │   └── tailwind.css                   # [RECOMMENDED] Global tailwind imports
-│   ├── tests/                             # [RECOMMENDED] Test files
-│   │   └── utils/
-│   │       └── hydraulics.test.ts         # Tests for hydraulic calculations
-│   ├── types/                             # Global type definitions
-│   │   └── index.ts                       # [RECOMMENDED] Common types
-│   ├── utils/                             # Utility functions
-│   │   └── formatters.ts                  # [RECOMMENDED] Value formatting helpers
-│   ├── App.tsx                            # ✓ EXISTING Main app component
-│   ├── App.css                            # ✓ EXISTING App styles
-│   ├── main.tsx                           # ✓ EXISTING Entry point
-│   └── vite-env.d.ts                      # ✓ EXISTING Vite type definitions
-├── .eslintrc.js                           # ✓ EXISTING ESLint config
-├── .gitignore                             # ✓ EXISTING Git ignore file
-├── index.html                             # ✓ EXISTING HTML template
-├── package.json                           # ✓ EXISTING Dependencies
-├── README.md                              # ✓ EXISTING Documentation
-├── tailwind.config.js                     # ✓ EXISTING Tailwind CSS config
-├── tsconfig.json                          # ✓ EXISTING TypeScript config
-├── vite.config.ts                         # ✓ EXISTING Vite config
-└── postcss.config.js                      # ✓ EXISTING PostCSS config
+│   ├── hooks/                                  # Global custom hooks
+│   │   ├── useOutsideClick.ts                  # For closing dropdowns
+│   │   └── useLocalStorage.ts                  # Local storage hook
+│   ├── layouts/                                # Page layouts
+│   │   └── MainLayout.tsx                      # Main layout with navigation
+│   ├── pages/                                  # Top-level pages
+│   │   ├── HomePage.tsx                        # Home page
+│   │   ├── CalculatorPage.tsx                  # Calculator page
+│   │   ├── DocumentationPage.tsx               # Documentation page
+│   │   └── AboutPage.tsx                       # About page
+│   ├── routes/                                 # App routing
+│   │   └── index.tsx                           # Main router configuration
+│   ├── services/                               # Business logic services
+│   │   ├── export/                             # Export services
+│   │   │   ├── exportToCsv.ts                  # CSV export
+│   │   │   ├── exportToJson.ts                 # JSON export
+│   │   │   ├── reportGenerator.ts              # Report generation
+│   │   │   └── index.ts                        # Service exports
+│   │   └── webWorkers/                         # Web workers
+│   │       └── standardStepWorker.ts           # Worker for calculations
+│   ├── stores/                                 # Redux store configuration
+│   │   ├── index.ts                            # Store configuration
+│   │   └── hooks.ts                            # useAppDispatch & useAppSelector
+│   ├── styles/                                 # Global styles
+│   │   └── tailwind.css                        # Global tailwind imports
+│   ├── tests/                                  # Test files
+│   │   ├── utils/
+│   │   │   └── hydraulics/                     # Tests for hydraulic calculations
+│   │   │       ├── channelGeometry.test.ts     # Channel geometry tests
+│   │   │       ├── flowParameters.test.ts      # Flow parameters tests
+│   │   │       └── standardStep.test.ts        # Standard step tests
+│   │   └── components/
+│   │       └── calculator/                     # Calculator component tests
+│   ├── types/                                  # Global type definitions
+│   │   └── index.ts                            # Common types
+│   ├── utils/                                  # Utility functions
+│   │   ├── formatters.ts                       # Value formatting helpers
+│   │   └── validation.ts                       # Generic validation helpers
+│   ├── App.tsx                                 # Main app component
+│   ├── App.css                                 # App styles
+│   ├── main.tsx                                # Entry point
+│   └── vite-env.d.ts                           # Vite type definitions
+├── .eslintrc.js                                # ESLint config
+├── .gitignore                                  # Git ignore file
+├── index.html                                  # HTML template
+├── package.json                                # Dependencies
+├── README.md                                   # Documentation
+├── tailwind.config.js                          # Tailwind CSS config
+├── tsconfig.json                               # TypeScript config
+├── vite.config.ts                              # Vite config
+└── postcss.config.js                           # PostCSS config
