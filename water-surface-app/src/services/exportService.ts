@@ -10,7 +10,7 @@ export class ExportService {
    * @param params Channel parameters
    * @returns CSV string
    */
-  static exportToCSV(results: CalculationResult[], params: ChannelParams): string {
+  static exportToCSV(results: CalculationResult[], _params: ChannelParams): string {
     // Create header row
     const headers = [
       'Station (m)',

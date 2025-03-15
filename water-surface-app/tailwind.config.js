@@ -26,4 +26,8 @@ export default {
     plugins: [
       require('@tailwindcss/forms'),
     ],
+    corePlugins: {
+      preflight: true,
+    },
+    base: './node_modules/tailwindcss/base',
   }

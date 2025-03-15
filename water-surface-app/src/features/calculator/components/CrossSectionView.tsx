@@ -36,7 +36,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     const padding = 50; // Padding for labels
     
     // Extract values from the selected result
-    const { depth, topWidth, wetPerimeter, area } = selectedResult;
+    const { depth, topWidth } = selectedResult;
     
     // Create SVG paths based on channel type
     let channelPath = "";
