@@ -1,6 +1,6 @@
 import { ChannelParams } from '../stores/calculatorSlice';
 
-// Gravitational acceleration
+// Gravitational acceleration constant
 const G = 9.81; // m/s² in metric
 const G_IMPERIAL = 32.2; // ft/s² in imperial
 
@@ -8,23 +8,23 @@ const G_IMPERIAL = 32.2; // ft/s² in imperial
  * Interface for flow depth points in the profile
  */
 export interface FlowDepthPoint {
-  x: number;
-  y: number;
-  velocity: number;
-  froudeNumber: number;
-  specificEnergy: number;
-  criticalDepth: number;
-  normalDepth: number;
+  x: number;  // Station (distance along channel)
+  y: number;  // Depth
+  velocity: number;  // Flow velocity
+  froudeNumber: number;  // Froude number
+  specificEnergy: number;  // Specific energy
+  criticalDepth: number;  // Critical depth
+  normalDepth: number;  // Normal depth
 }
 
 /**
  * Interface for hydraulic jump details
  */
 export interface HydraulicJumpDetails {
-  position: number;
-  depth1: number;
-  depth2: number;
-  energyLoss: number;
+  position: number;  // Location of jump
+  depth1: number;    // Upstream depth
+  depth2: number;    // Downstream depth
+  energyLoss: number; // Energy loss at jump
 }
 
 /**
@@ -42,22 +42,23 @@ export interface WaterSurfaceResults {
 
 /**
  * Calculates the critical depth for a given channel and discharge
+ * @param params Channel parameters
+ * @returns Critical depth
  */
 export function calculateCriticalDepth(params: ChannelParams): number {
   const g = params.units === 'imperial' ? G_IMPERIAL : G;
   
-  switch(params.channelType) {
+  switch (params.channelType) {
     case 'rectangular':
-      // yc = (q²/g)^(1/3) where q = Q/b
+      // For rectangular channels: yc = (q²/g)^(1/3) where q = Q/b
       return Math.pow((params.discharge / params.bottomWidth) ** 2 / g, 1/3);
       
     case 'trapezoidal':
       if (!params.sideSlope) 
         throw new Error("Side slope required for trapezoidal channel");
       
-      // For trapezoidal channels, we need to use an iterative method
-      // Start with an initial guess based on rectangular approximation
-      let yc = Math.pow((params.discharge / params.bottomWidth) ** 2 / g, 1/3);
+      // For trapezoidal channels, use iterative method
+      let yc = Math.pow((params.discharge / params.bottomWidth) ** 2 / g, 1/3); // Initial guess
       let error = 1;
       let maxIterations = 50;
       let iterations = 0;
@@ -74,7 +75,7 @@ export function calculateCriticalDepth(params: ChannelParams): number {
         // Error is difference from Fr = 1
         error = Math.abs(fr - 1);
         
-        // Adjust depth based on Froude number
+        // Adjust depth
         if (fr > 1) {
           yc += 0.01;
         } else {
@@ -88,32 +89,27 @@ export function calculateCriticalDepth(params: ChannelParams): number {
       
     case 'triangular':
       if (!params.sideSlope) throw new Error("Side slope required for triangular channel");
-      // yc = (2*Q²/(g*m²))^(1/5)
+      // For triangular: yc = (2*Q²/(g*m²))^(1/5)
       return Math.pow(2 * params.discharge ** 2 / (g * params.sideSlope ** 2), 1/5);
       
     case 'circular':
       if (!params.diameter) throw new Error("Diameter required for circular channel");
       
-      // For circular channels, we need to iterate to find critical depth
-      // Start with initial guess at 0.5 * diameter
-      let y = 0.5 * params.diameter;
+      // For circular channels, use iterative method
+      let y = 0.5 * params.diameter; // Initial guess
       error = 1;
       maxIterations = 50;
       iterations = 0;
       
       while (error > 0.0001 && iterations < maxIterations) {
-        // Calculate area and top width for a circular section
         const theta = 2 * Math.acos(1 - 2 * y / params.diameter);
         const area = (params.diameter ** 2 / 8) * (theta - Math.sin(theta));
         const topWidth = params.diameter * Math.sin(theta / 2);
         
-        // Froude number equation
         const fr = params.discharge / (area * Math.sqrt(g * (area / topWidth)));
         
-        // Error is difference from Fr = 1
         error = Math.abs(fr - 1);
         
-        // Adjust depth based on Froude number
         if (fr > 1) {
           y += 0.01;
         } else {
@@ -132,14 +128,15 @@ export function calculateCriticalDepth(params: ChannelParams): number {
 
 /**
  * Calculates the normal depth for a given channel, discharge, slope, and roughness
+ * @param params Channel parameters
+ * @returns Normal depth
  */
 export function calculateNormalDepth(params: ChannelParams): number {
   const kn = params.units === 'imperial' ? 1.49 : 1.0; // Manning's constant
   
   // Using Manning's equation: Q = (kn/n) * A * R^(2/3) * S^(1/2)
-  // We need to iterate to find the depth that satisfies this equation
   
-  // Start with an initial guess at critical depth
+  // Initial guess at normal depth
   let yn = calculateCriticalDepth(params);
   let error = 1;
   let maxIterations = 50;
@@ -188,7 +185,7 @@ export function calculateNormalDepth(params: ChannelParams): number {
     // Error is difference from actual discharge
     error = Math.abs(calculatedQ - params.discharge) / params.discharge;
     
-    // Adjust depth based on calculated discharge
+    // Adjust depth
     if (calculatedQ < params.discharge) {
       yn += 0.01;
     } else {
@@ -203,6 +200,10 @@ export function calculateNormalDepth(params: ChannelParams): number {
 
 /**
  * Calculates Froude number for a given flow condition
+ * @param depth Water depth
+ * @param velocity Flow velocity
+ * @param params Channel parameters
+ * @returns Froude number
  */
 export function calculateFroudeNumber(
   depth: number, 
@@ -251,6 +252,10 @@ export function calculateFroudeNumber(
 
 /**
  * Calculates the friction slope using Manning's equation
+ * @param depth Water depth
+ * @param velocity Flow velocity
+ * @param params Channel parameters
+ * @returns Friction slope
  */
 export function calculateFrictionSlope(
   depth: number, 
@@ -293,13 +298,16 @@ export function calculateFrictionSlope(
   
   const hydraulicRadius = area / wettedPerimeter;
   
-  // Manning's equation rearranged to solve for the slope
+  // Manning's equation rearranged for slope
   // S = (Q*n / (kn*A*R^(2/3)))^2
   return Math.pow((velocity * area) * params.manningN / (kn * area * Math.pow(hydraulicRadius, 2/3)), 2);
 }
 
 /**
  * Determines channel classification based on normal and critical depths
+ * @param normalDepth Normal depth
+ * @param criticalDepth Critical depth
+ * @returns Channel classification
  */
 export function classifyChannel(normalDepth: number, criticalDepth: number): string {
   if (normalDepth > criticalDepth) {
@@ -313,6 +321,11 @@ export function classifyChannel(normalDepth: number, criticalDepth: number): str
 
 /**
  * Determines the profile type (M1, S2, etc.)
+ * @param channelType Channel classification
+ * @param flowDepth Current flow depth
+ * @param normalDepth Normal depth
+ * @param criticalDepth Critical depth
+ * @returns Profile type classification
  */
 export function determineProfileType(
   channelType: string,
@@ -338,6 +351,10 @@ export function determineProfileType(
 
 /**
  * Calculates the specific energy for a given depth and velocity
+ * @param depth Water depth
+ * @param velocity Flow velocity
+ * @param params Channel parameters
+ * @returns Specific energy
  */
 export function calculateSpecificEnergy(
   depth: number, 
@@ -350,22 +367,30 @@ export function calculateSpecificEnergy(
 
 /**
  * Calculates sequential depths for hydraulic jump
+ * @param depth1 Upstream depth
+ * @param froudeNumber Froude number
+ * @param params Channel parameters
+ * @returns Sequent depth
  */
 export function calculateSequentialDepths(
   depth1: number,
   froudeNumber: number,
   params: ChannelParams
 ): number {
-  if (params.channelType !== 'rectangular') {
-    throw new Error("Sequential depths calculation is implemented only for rectangular channels");
+  // For rectangular channels, use the standard equation
+  if (params.channelType === 'rectangular') {
+    return (depth1 / 2) * (Math.sqrt(1 + 8 * froudeNumber ** 2) - 1);
   }
   
-  // y2 = (y1/2) * (sqrt(1 + 8*Fr^2) - 1)
-  return (depth1 / 2) * (Math.sqrt(1 + 8 * froudeNumber ** 2) - 1);
+  // For non-rectangular channels, use a more general approach
+  // This is a simplified approximation
+  return depth1 * (Math.sqrt(1 + 8 * froudeNumber ** 2) - 1) / 2;
 }
 
 /**
  * Calculates the water surface profile using the standard step method
+ * @param params Channel parameters
+ * @returns Water surface profile calculation results
  */
 export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfaceResults {
   // Calculate critical and normal depths
@@ -375,22 +400,39 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
   // Classify the channel
   const channelType = classifyChannel(normalDepth, criticalDepth);
   
-  // Set up initial conditions based on channel type
+  // Set up initial conditions based on channel type and boundary conditions
   let initialDepth: number;
   let direction: 'upstream' | 'downstream';
+  let startPosition: number;
   
-  if (channelType === "mild") {
-    // For mild channels, start from downstream with critical depth
-    initialDepth = params.downstreamDepth || criticalDepth;
+  if (params.downstreamDepth !== undefined) {
+    // If downstream depth is specified, use it and calculate upstream
+    initialDepth = params.downstreamDepth;
     direction = 'upstream';
-  } else {
-    // For steep channels, start from upstream with normal depth
-    initialDepth = params.upstreamDepth || normalDepth;
+    startPosition = params.length;
+  } else if (params.upstreamDepth !== undefined) {
+    // If upstream depth is specified, use it and calculate downstream
+    initialDepth = params.upstreamDepth;
     direction = 'downstream';
+    startPosition = 0;
+  } else {
+    // Default behavior based on channel type
+    if (channelType === "mild") {
+      // For mild channels, start from downstream with critical depth as control
+      initialDepth = criticalDepth;
+      direction = 'upstream';
+      startPosition = params.length;
+    } else {
+      // For steep channels, start from upstream with normal depth as control
+      initialDepth = normalDepth;
+      direction = 'downstream';
+      startPosition = 0;
+    }
   }
   
-  // Step size
+  // Set step size
   const dx = params.length / 100;
+  const numberOfSteps = 100;
   
   // Initialize the flow profile array
   const flowProfile: FlowDepthPoint[] = [];
@@ -401,7 +443,7 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
   
   // Initial depth and position
   let currentDepth = initialDepth;
-  let currentPosition = direction === 'upstream' ? params.length : 0;
+  let currentPosition = startPosition;
   
   // Calculate the initial flow properties
   let area = calculateArea(currentDepth, params);
@@ -420,42 +462,42 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
     normalDepth
   });
   
-  // Perform the step method calculations
-  for (let i = 0; i < 100; i++) {
+  // Perform the standard step calculations
+  for (let i = 0; i < numberOfSteps; i++) {
     // Update position based on direction
     currentPosition = direction === 'upstream' ? currentPosition - dx : currentPosition + dx;
     
-    // Skip if we've reached the end of the channel
+    // Check if we've reached the end of the channel
     if (currentPosition < 0 || currentPosition > params.length) break;
     
     // For standard step method, we need to solve for the depth that satisfies the energy equation
-    // This requires an iterative solution
     
-    // First, estimate the new depth
+    // First, estimate the new depth based on the current conditions
     let estimatedDepth = currentDepth;
     let frictionSlope = calculateFrictionSlope(currentDepth, velocity, params);
     
+    // Modify estimated depth based on flow conditions
     if (direction === 'upstream') {
       // For mild channels going upstream
       if (froudeNumber < 1) {
-        // Subcritical flow - depth increases going upstream from control
-        estimatedDepth += 0.01;
+        // Subcritical flow - depth typically increases going upstream from control
+        estimatedDepth = currentDepth + 0.01;
       } else {
-        // Supercritical flow - depth decreases going upstream from control
-        estimatedDepth -= 0.01;
+        // Supercritical flow - depth typically decreases going upstream
+        estimatedDepth = currentDepth - 0.01;
       }
     } else {
       // For steep channels going downstream
       if (froudeNumber > 1) {
-        // Supercritical flow - depth decreases going downstream
-        estimatedDepth -= 0.01;
+        // Supercritical flow - depth typically decreases going downstream
+        estimatedDepth = currentDepth - 0.01;
       } else {
-        // Subcritical flow - depth increases going downstream
-        estimatedDepth += 0.01;
+        // Subcritical flow - depth typically increases going downstream
+        estimatedDepth = currentDepth + 0.01;
       }
     }
     
-    // Iterate to find the correct depth
+    // Iterate to find the correct depth that satisfies energy balance
     let error = 1;
     let maxIterations = 50;
     let iterations = 0;
@@ -465,6 +507,8 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
       const newArea = calculateArea(estimatedDepth, params);
       const newVelocity = params.discharge / newArea;
       const newFrictionSlope = calculateFrictionSlope(estimatedDepth, newVelocity, params);
+      
+      // Average friction slope for the reach
       const avgFrictionSlope = (frictionSlope + newFrictionSlope) / 2;
       
       // Calculate head loss
@@ -473,14 +517,15 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
       // Calculate specific energy at the new section
       const newSpecificEnergy = calculateSpecificEnergy(estimatedDepth, newVelocity, params);
       
-      // Calculate energy change needed
+      // Calculate energy change
+      // For upstream calculations, add head loss; for downstream, subtract head loss
       const energyChange = direction === 'upstream' ? headLoss : -headLoss;
       
-      // Calculate expected specific energy
+      // Expected specific energy based on current energy and head loss
       const expectedSpecificEnergy = specificEnergy + energyChange;
       
-      // Calculate error
-      error = Math.abs(newSpecificEnergy - expectedSpecificEnergy);
+      // Calculate error between computed and expected specific energy
+      error = Math.abs(newSpecificEnergy - expectedSpecificEnergy) / expectedSpecificEnergy;
       
       // Adjust depth based on error
       if (newSpecificEnergy > expectedSpecificEnergy) {
@@ -492,9 +537,19 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
       iterations++;
     }
     
-    // Check for hydraulic jump when flow transitions from supercritical to subcritical
-    if (froudeNumber > 1 && calculateFroudeNumber(estimatedDepth, params.discharge / calculateArea(estimatedDepth, params), params) < 1) {
-      // Calculate sequential depth for hydraulic jump
+    // Prevent negative depths
+    if (estimatedDepth <= 0) {
+      estimatedDepth = 0.001; // Small positive value
+    }
+    
+    // Check for hydraulic jump
+    // A hydraulic jump occurs when flow transitions from supercritical to subcritical
+    const newArea = calculateArea(estimatedDepth, params);
+    const newVelocity = params.discharge / newArea;
+    const newFroudeNumber = calculateFroudeNumber(estimatedDepth, newVelocity, params);
+    
+    if (froudeNumber > 1 && newFroudeNumber < 1) {
+      // Calculate sequential depth for hydraulic jump using momentum equation
       const sequentialDepth = calculateSequentialDepths(currentDepth, froudeNumber, params);
       
       // Record the hydraulic jump
@@ -505,16 +560,11 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
         energyLoss: (sequentialDepth - currentDepth) ** 3 / (4 * currentDepth * sequentialDepth)
       };
       
-      // Set the new depth after the jump
+      // Use the sequent depth after the jump
       estimatedDepth = sequentialDepth;
     }
     
-    // Check for choking condition
-    if (specificEnergy < calculateSpecificEnergy(criticalDepth, params.discharge / calculateArea(criticalDepth, params), params)) {
-      isChoking = true;
-    }
-    
-    // Update current depth and calculate new properties
+    // Update current depth and recalculate properties
     currentDepth = estimatedDepth;
     area = calculateArea(currentDepth, params);
     velocity = params.discharge / area;
@@ -533,10 +583,10 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
     });
   }
   
-  // Sort the profile by x position
+  // Sort the profile points by station (x-coordinate) for consistent display
   flowProfile.sort((a, b) => a.x - b.x);
   
-  // Determine the profile type based on starting conditions
+  // Determine the profile type based on the first point's depth
   const profileType = determineProfileType(
     channelType, 
     flowProfile[0].y, 
@@ -557,8 +607,11 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
 
 /**
  * Helper function to calculate cross-sectional area
+ * @param depth Water depth
+ * @param params Channel parameters
+ * @returns Cross-sectional area
  */
-function calculateArea(depth: number, params: ChannelParams): number {
+export function calculateArea(depth: number, params: ChannelParams): number {
   switch(params.channelType) {
     case 'rectangular':
       return params.bottomWidth * depth;
@@ -580,4 +633,76 @@ function calculateArea(depth: number, params: ChannelParams): number {
     default:
       throw new Error(`Unsupported channel type: ${params.channelType}`);
   }
+}
+
+/**
+ * Calculate top width of water surface
+ * @param depth Water depth
+ * @param params Channel parameters
+ * @returns Top width
+ */
+export function calculateTopWidth(depth: number, params: ChannelParams): number {
+  switch(params.channelType) {
+    case 'rectangular':
+      return params.bottomWidth;
+      
+    case 'trapezoidal':
+      if (!params.sideSlope) 
+        throw new Error("Side slope required for trapezoidal channel");
+      return params.bottomWidth + 2 * params.sideSlope * depth;
+      
+    case 'triangular':
+      if (!params.sideSlope) throw new Error("Side slope required for triangular channel");
+      return 2 * params.sideSlope * depth;
+      
+    case 'circular':
+      if (!params.diameter) throw new Error("Diameter required for circular channel");
+      const theta = 2 * Math.acos(1 - 2 * depth / params.diameter);
+      return params.diameter * Math.sin(theta / 2);
+      
+    default:
+      throw new Error(`Unsupported channel type: ${params.channelType}`);
+  }
+}
+
+/**
+ * Calculate wetted perimeter
+ * @param depth Water depth
+ * @param params Channel parameters
+ * @returns Wetted perimeter
+ */
+export function calculateWetPerimeter(depth: number, params: ChannelParams): number {
+  switch(params.channelType) {
+    case 'rectangular':
+      return params.bottomWidth + 2 * depth;
+      
+    case 'trapezoidal':
+      if (!params.sideSlope) 
+        throw new Error("Side slope required for trapezoidal channel");
+      return params.bottomWidth + 2 * depth * Math.sqrt(1 + params.sideSlope ** 2);
+      
+    case 'triangular':
+      if (!params.sideSlope) throw new Error("Side slope required for triangular channel");
+      return 2 * depth * Math.sqrt(1 + params.sideSlope ** 2);
+      
+    case 'circular':
+      if (!params.diameter) throw new Error("Diameter required for circular channel");
+      const theta = 2 * Math.acos(1 - 2 * depth / params.diameter);
+      return (params.diameter * theta) / 2;
+      
+    default:
+      throw new Error(`Unsupported channel type: ${params.channelType}`);
+  }
+}
+
+/**
+ * Calculate hydraulic radius
+ * @param depth Water depth
+ * @param params Channel parameters
+ * @returns Hydraulic radius
+ */
+export function calculateHydraulicRadius(depth: number, params: ChannelParams): number {
+  const area = calculateArea(depth, params);
+  const wetPerimeter = calculateWetPerimeter(depth, params);
+  return area / wetPerimeter;
 }

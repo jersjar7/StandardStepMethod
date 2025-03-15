@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import type { CalculationResult, HydraulicJump } from './stores/calculatorSlice';
-import { 
-  updateChannelParams, 
+import {
+  updateChannelParams,
   setChannelType,
-  startCalculation, 
-  calculationSuccess, 
+  startCalculation,
+  calculationSuccess,
   calculationFailure,
   resetCalculator
 } from './stores/calculatorSlice';
@@ -16,103 +15,45 @@ import ChannelForm from './components/ChannelForm';
 import ResultsTable from './components/ResultsTable';
 import ProfileVisualization from './components/ProfileVisualization';
 import CrossSectionView from './components/CrossSectionView';
+import WaterSurfaceVisualization from './components/WaterSurfaceVisualization';
 
-// Import hooks
-import { useChannelCalculations } from './hooks/useChannelCalculations';
+// Import hydraulics utilities
+import {
+  calculateWaterSurfaceProfile,
+  calculateArea,
+  calculateTopWidth,
+  calculateWetPerimeter,
+  calculateHydraulicRadius
+} from './utils/hydraulics';
 
-// Import services
-import { ExportService } from '../../services/exportService';
-
-// Interface for worker response messages
-interface WorkerResponse {
-  status: 'success' | 'error';
-  data?: {
-    results: CalculationResult[];
-    hydraulicJump: HydraulicJump;
-  };
-  error?: string;
+// Interface for hydraulic jump
+interface HydraulicJump {
+  occurs: boolean;
+  station?: number;
+  upstreamDepth?: number;
+  downstreamDepth?: number;
 }
-
-// Lazy load worker to avoid URL constructor issues
-const getWorker = () => {
-  if (typeof Worker !== 'undefined') {
-    try {
-      // Type assertion to avoid TS errors with URL constructor
-      return new Worker(new URL('../../services/webWorkers/standardStepWorker.ts', import.meta.url) as any, { type: 'module' });
-    } catch (error) {
-      console.error('Error initializing worker:', error);
-      return null;
-    }
-  }
-  console.warn('Web Workers not supported in this browser. Calculation will run in main thread.');
-  return null;
-};
 
 const Calculator: React.FC = () => {
   const dispatch = useDispatch();
-  const { 
-    channelParams, 
-    results, 
-    isCalculating, 
-    error 
+  const {
+    channelParams,
+    results,
+    isCalculating,
+    error
   } = useSelector((state: RootState) => state.calculator);
   
   const [selectedResultIndex, setSelectedResultIndex] = useState<number>(0);
-  const [selectedResult, setSelectedResult] = useState<CalculationResult | null>(null);
-  const [activeTab, setActiveTab] = useState<'input' | 'results' | 'profile' | 'cross-section'>('input');
+  const [selectedResult, setSelectedResult] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState<'input' | 'results' | 'profile' | 'cross-section' | 'water-surface'>('input');
   const [showExportOptions, setShowExportOptions] = useState<boolean>(false);
-  const [worker, setWorker] = useState<Worker | null>(null);
-  const timeoutRef = useRef<number | null>(null);
-  const { calculateWaterSurfaceProfile } = useChannelCalculations();
-  
-  // Initialize worker
-  useEffect(() => {
-    const standardStepWorker = getWorker();
-    if (standardStepWorker) {
-      setWorker(standardStepWorker);
-    }
-    
-    return () => {
-      if (standardStepWorker) {
-        standardStepWorker.terminate();
-      }
-      
-      // Clean up any lingering timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-  
-  // Set up listener for worker messages
-  useEffect(() => {
-    if (!worker) return;
-    
-    const handleWorkerMessage = (event: MessageEvent<WorkerResponse>) => {
-      const { status, data, error: workerError } = event.data;
-      
-      if (status === 'success' && data) {
-        dispatch(calculationSuccess({
-          results: data.results,
-          hydraulicJump: data.hydraulicJump
-        }));
-        setActiveTab('results');
-      } else {
-        dispatch(calculationFailure(workerError || 'Calculation failed'));
-      }
-    };
-    
-    worker.addEventListener('message', handleWorkerMessage);
-    
-    // Clean up the worker listener when component unmounts
-    return () => {
-      worker.removeEventListener('message', handleWorkerMessage);
-    };
-  }, [worker, dispatch]);
   
   // Update selected result when results change
   useEffect(() => {
-    if (results && results.length > 0 && selectedResultIndex >= 0 && selectedResultIndex < results.length) {
+    if (results && results.length > 0) {
+      if (selectedResultIndex >= results.length) {
+        setSelectedResultIndex(0);
+      }
       setSelectedResult(results[selectedResultIndex]);
     } else {
       setSelectedResult(null);
@@ -123,42 +64,43 @@ const Calculator: React.FC = () => {
   const handleCalculate = async () => {
     dispatch(startCalculation());
     
-    // Clear any existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    
     try {
-      // Use web worker for intensive calculations if available
-      if (worker) {
-        worker.postMessage({
-          params: channelParams
-        });
-        
-        // Set fallback timeout in case worker doesn't respond
-        timeoutRef.current = window.setTimeout(() => {
-          if (isCalculating) {
-            console.log('Worker taking too long, falling back to main thread calculation');
-            performMainThreadCalculation();
-          }
-        }, 5000); // 5 second timeout
-      } else {
-        // No worker available, calculate on main thread
-        performMainThreadCalculation();
-      }
-    } catch (err) {
-      dispatch(calculationFailure(err instanceof Error ? err.message : 'An unknown error occurred'));
-    }
-  };
-  
-  // Perform calculation on main thread as fallback
-  const performMainThreadCalculation = async () => {
-    try {
-      const { results, hydraulicJump } = await calculateWaterSurfaceProfile(channelParams);
-      dispatch(calculationSuccess({ results, hydraulicJump }));
+      // Calculate water surface profile using the hydraulics utility
+      const output = calculateWaterSurfaceProfile(channelParams);
+      
+      // Format results for the Redux store
+      const formattedResults = output.flowProfile.map(point => ({
+        station: point.x,
+        depth: point.y,
+        velocity: point.velocity,
+        area: calculateArea(point.y, channelParams),
+        topWidth: calculateTopWidth(point.y, channelParams),
+        wetPerimeter: calculateWetPerimeter(point.y, channelParams),
+        hydraulicRadius: calculateHydraulicRadius(point.y, channelParams),
+        energy: point.specificEnergy,
+        froudeNumber: point.froudeNumber,
+        criticalDepth: point.criticalDepth,
+        normalDepth: point.normalDepth
+      }));
+      
+      // Format hydraulic jump data
+      const hydraulicJump: HydraulicJump = output.hydraulicJump ? {
+        occurs: true,
+        station: output.hydraulicJump.position,
+        upstreamDepth: output.hydraulicJump.depth1,
+        downstreamDepth: output.hydraulicJump.depth2
+      } : { occurs: false };
+      
+      // Dispatch successful calculation
+      dispatch(calculationSuccess({ 
+        results: formattedResults, 
+        hydraulicJump 
+      }));
+      
+      // Switch to results tab
       setActiveTab('results');
     } catch (err) {
+      // Handle calculation errors
       dispatch(calculationFailure(err instanceof Error ? err.message : 'An unknown error occurred'));
     }
   };
@@ -167,27 +109,139 @@ const Calculator: React.FC = () => {
   const handleReset = () => {
     dispatch(resetCalculator());
     setActiveTab('input');
-    setSelectedResultIndex(0);
-    setSelectedResult(null);
   };
   
   // Handle export
   const handleExport = (format: 'csv' | 'json' | 'report') => {
     if (!results || results.length === 0) return;
     
-    switch (format) {
-      case 'csv':
-        const csvContent = ExportService.exportToCSV(results, channelParams);
-        ExportService.downloadCSV(csvContent);
-        break;
-      case 'json':
-        const jsonContent = ExportService.exportToJSON(results, channelParams);
-        ExportService.downloadJSON(jsonContent);
-        break;
-      case 'report':
-        const reportContent = ExportService.generateReport(results, channelParams);
-        ExportService.downloadReport(reportContent);
-        break;
+    if (format === 'csv') {
+      // Create CSV content
+      const headers = ['Station (m)', 'Depth (m)', 'Velocity (m/s)', 'Area (m²)', 'Froude Number', 'Energy (m)'];
+      let csvContent = headers.join(',') + '\n';
+      
+      results.forEach(result => {
+        const row = [
+          result.station.toFixed(2),
+          result.depth.toFixed(3),
+          result.velocity.toFixed(3),
+          result.area.toFixed(3),
+          result.froudeNumber.toFixed(3),
+          result.energy.toFixed(3)
+        ];
+        csvContent += row.join(',') + '\n';
+      });
+      
+      // Create download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'water_surface_profile.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (format === 'json') {
+      // Create JSON content
+      const jsonContent = JSON.stringify({
+        channelParams,
+        results
+      }, null, 2);
+      
+      // Create download
+      const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'water_surface_profile.json');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (format === 'report') {
+      // Create a simple HTML report
+      const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Water Surface Profile Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          h1, h2 { color: #0284c7; }
+          table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          .summary { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; }
+          .summary-item { flex: 1; min-width: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        </style>
+      </head>
+      <body>
+        <h1>Water Surface Profile Calculation Report</h1>
+        
+        <h2>Channel Parameters</h2>
+        <table>
+          <tr><th>Parameter</th><th>Value</th></tr>
+          <tr><td>Channel Type</td><td>${channelParams.channelType}</td></tr>
+          <tr><td>Bottom Width</td><td>${channelParams.bottomWidth} m</td></tr>
+          ${channelParams.sideSlope ? `<tr><td>Side Slope</td><td>${channelParams.sideSlope}</td></tr>` : ''}
+          ${channelParams.diameter ? `<tr><td>Diameter</td><td>${channelParams.diameter} m</td></tr>` : ''}
+          <tr><td>Manning's n</td><td>${channelParams.manningN}</td></tr>
+          <tr><td>Channel Slope</td><td>${channelParams.channelSlope}</td></tr>
+          <tr><td>Discharge</td><td>${channelParams.discharge} m³/s</td></tr>
+          <tr><td>Channel Length</td><td>${channelParams.length} m</td></tr>
+        </table>
+        
+        <h2>Results Summary</h2>
+        <div class="summary">
+          <div class="summary-item">
+            <div><strong>Normal Depth:</strong> ${results[0]?.normalDepth?.toFixed(3) ?? 'N/A'} m</div>
+          </div>
+          <div class="summary-item">
+            <div><strong>Critical Depth:</strong> ${results[0]?.criticalDepth?.toFixed(3) ?? 'N/A'} m</div>
+          </div>
+          <div class="summary-item">
+            <div><strong>Flow Regime:</strong> ${results[0]?.froudeNumber < 1 ? 'Subcritical' : 'Supercritical'}</div>
+          </div>
+        </div>
+        
+        <h2>Water Surface Profile</h2>
+        <table>
+          <tr>
+            <th>Station (m)</th>
+            <th>Depth (m)</th>
+            <th>Velocity (m/s)</th>
+            <th>Area (m²)</th>
+            <th>Froude Number</th>
+            <th>Energy (m)</th>
+          </tr>
+          ${results.map(result => `
+            <tr>
+              <td>${result.station.toFixed(2)}</td>
+              <td>${result.depth.toFixed(3)}</td>
+              <td>${result.velocity.toFixed(3)}</td>
+              <td>${result.area.toFixed(3)}</td>
+              <td>${result.froudeNumber.toFixed(3)}</td>
+              <td>${result.energy.toFixed(3)}</td>
+            </tr>
+          `).join('')}
+        </table>
+        
+        <p><em>Report generated on ${new Date().toLocaleString()}</em></p>
+      </body>
+      </html>
+      `;
+      
+      // Create download
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'water_surface_profile_report.html');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
     
     setShowExportOptions(false);
@@ -202,7 +256,7 @@ const Calculator: React.FC = () => {
   
   return (
     <div className="container mx-auto px-4 py-6">
-      <h1 className="text-3xl font-bold text-center mb-6">Water Surface Profile Calculator</h1>
+      <h1 className="text-3xl font-bold text-gray-900 text-center mb-6">Water Surface Profile Calculator</h1>
       
       {/* Tabs navigation */}
       <div className="mb-6">
@@ -210,50 +264,57 @@ const Calculator: React.FC = () => {
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveTab('input')}
-              className={`
-                py-2 px-1 border-b-2 font-medium text-sm 
-                ${activeTab === 'input' 
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'input' 
                   ? 'border-primary-500 text-primary-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-              `}
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
             >
               Channel Input
             </button>
             <button
               onClick={() => setActiveTab('results')}
-              className={`
-                py-2 px-1 border-b-2 font-medium text-sm 
-                ${activeTab === 'results' 
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'results' 
                   ? 'border-primary-500 text-primary-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-              `}
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
               disabled={!results || results.length === 0}
             >
-              Calculation Results
+              Results Table
             </button>
             <button
               onClick={() => setActiveTab('profile')}
-              className={`
-                py-2 px-1 border-b-2 font-medium text-sm 
-                ${activeTab === 'profile' 
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'profile' 
                   ? 'border-primary-500 text-primary-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-              `}
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
               disabled={!results || results.length === 0}
             >
               Profile Visualization
             </button>
             <button
               onClick={() => setActiveTab('cross-section')}
-              className={`
-                py-2 px-1 border-b-2 font-medium text-sm 
-                ${activeTab === 'cross-section' 
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'cross-section' 
                   ? 'border-primary-500 text-primary-600' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-              `}
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
               disabled={!results || results.length === 0}
             >
               Cross Section
+            </button>
+            <button
+              onClick={() => setActiveTab('water-surface')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'water-surface' 
+                  ? 'border-primary-500 text-primary-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              disabled={!results || results.length === 0}
+            >
+              Water Surface
             </button>
           </nav>
         </div>
@@ -365,6 +426,12 @@ const Calculator: React.FC = () => {
               channelType={channelParams.channelType}
             />
           </div>
+        )}
+        
+        {activeTab === 'water-surface' && results && results.length > 0 && (
+          <WaterSurfaceVisualization 
+            results={results} 
+          />
         )}
       </div>
     </div>

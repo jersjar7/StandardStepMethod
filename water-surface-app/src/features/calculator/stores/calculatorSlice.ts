@@ -3,18 +3,18 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 // Define types for our state
 export interface ChannelParams {
   channelType: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular';
-  bottomWidth: number;
-  sideSlope?: number;
-  diameter?: number;
-  manningN: number;
-  channelSlope: number;
-  discharge: number;
-  length: number;
-  upstreamDepth?: number;
-  downstreamDepth?: number;
+  bottomWidth: number;        // For rectangular and trapezoidal
+  sideSlope?: number;         // For trapezoidal and triangular
+  diameter?: number;          // For circular
+  manningN: number;           // Manning's roughness coefficient
+  channelSlope: number;       // Channel bed slope
+  discharge: number;          // Flow rate
+  length: number;             // Channel length
+  upstreamDepth?: number;     // Optional boundary condition
+  downstreamDepth?: number;   // Optional boundary condition
   criticalDepth?: number;
   normalDepth?: number;
-  units?: 'metric' | 'imperial'; // Adding units option
+  units?: 'metric' | 'imperial'; // Unit system
 }
 
 export interface CalculationResult {
