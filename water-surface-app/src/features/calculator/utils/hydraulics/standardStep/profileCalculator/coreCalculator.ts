@@ -204,7 +204,7 @@ export function calculateWaterSurfaceProfile(
  */
 export function calculateHighResolutionProfile(
   params: ChannelParams,
-  resolution: number = 200
+  _resolution: number = 200
 ): WaterSurfaceProfileResults {
   // Save original channel length
   const originalLength = params.length;

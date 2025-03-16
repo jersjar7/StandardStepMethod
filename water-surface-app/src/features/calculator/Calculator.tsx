@@ -3,13 +3,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   updateChannelParams,
   setChannelType,
-  startCalculation,
-  calculationSuccess,
-  calculationFailure,
-  resetCalculator,
-  HydraulicJump
 } from './stores/calculatorSlice';
 import { RootState } from '../../stores';
+import { ProfileType } from './types';
 
 // Import components
 import ChannelForm from './components/ChannelForm/ChannelForm';
@@ -40,7 +36,7 @@ const Calculator: React.FC = () => {
   const { runCalculation, resetCalculation, getChannelClassification } = useCalculation();
   const { 
     selectedResult, 
-    selectResultByStation, 
+    selectResultByStation,
     getProfileType,
     getFilteredResults
   } = useResults();
@@ -69,10 +65,11 @@ const Calculator: React.FC = () => {
     setActiveTab('input');
   };
   
-  // Determine profile type for visualization
-  const profileType = getProfileType();
-  // Determine channel slope classification
-  const channelSlope = getChannelClassification();
+  // Determine profile type for visualization - handle the case when there are no results
+  const profileType = results.length > 0 ? getProfileType : ProfileType.UNKNOWN;
+  
+  // Determine channel slope classification with type assertion
+  const channelSlope = getChannelClassification() as 'mild' | 'critical' | 'steep';
   
   // Handle channel type change
   const handleChannelTypeChange = (type: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular') => {
