@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { ChannelParams } from '../stores/calculatorSlice';
+import { ChannelParams } from '../../stores/calculatorSlice';
+import ChannelTypeSelector from './ChannelTypeSelector';
+import GeometryInputs from './GeometryInputs';
+import FlowInputs from './FlowInputs';
+import BoundaryConditions from './BoundaryConditions';
 
 interface ChannelFormProps {
   channelParams: ChannelParams;
@@ -67,19 +71,6 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
     }
   };
   
-  // Determine the current boundary condition type
-  const getBoundaryConditionType = (): 'critical-downstream' | 'normal-upstream' | 'custom' => {
-    if (channelParams.downstreamDepth && !channelParams.upstreamDepth) {
-      return 'critical-downstream';
-    } else if (channelParams.upstreamDepth && !channelParams.downstreamDepth) {
-      return 'normal-upstream';
-    } else if (channelParams.upstreamDepth && channelParams.downstreamDepth) {
-      return 'custom';
-    }
-    // Default if no boundary conditions set
-    return 'critical-downstream';
-  };
-  
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,255 +84,31 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Channel Type Selection */}
-          <div className="col-span-1 md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Channel Type</label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div
-                onClick={() => onChannelTypeChange('rectangular')}
-                className={`cursor-pointer p-4 rounded-lg border-2 ${
-                  channelParams.channelType === 'rectangular' 
-                    ? 'border-primary-500 bg-primary-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="h-16 flex items-center justify-center">
-                  <svg width="60" height="30" viewBox="0 0 60 30" fill="none">
-                    <rect x="5" y="5" width="50" height="20" stroke="currentColor" strokeWidth="2" fill="none" />
-                  </svg>
-                </div>
-                <p className="text-center mt-2 text-sm font-medium">Rectangular</p>
-              </div>
-              
-              <div
-                onClick={() => onChannelTypeChange('trapezoidal')}
-                className={`cursor-pointer p-4 rounded-lg border-2 ${
-                  channelParams.channelType === 'trapezoidal' 
-                    ? 'border-primary-500 bg-primary-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="h-16 flex items-center justify-center">
-                  <svg width="60" height="30" viewBox="0 0 60 30" fill="none">
-                    <path d="M10 25 L20 5 L40 5 L50 25 Z" stroke="currentColor" strokeWidth="2" fill="none" />
-                  </svg>
-                </div>
-                <p className="text-center mt-2 text-sm font-medium">Trapezoidal</p>
-              </div>
-              
-              <div
-                onClick={() => onChannelTypeChange('triangular')}
-                className={`cursor-pointer p-4 rounded-lg border-2 ${
-                  channelParams.channelType === 'triangular' 
-                    ? 'border-primary-500 bg-primary-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="h-16 flex items-center justify-center">
-                  <svg width="60" height="30" viewBox="0 0 60 30" fill="none">
-                    <path d="M5 25 L30 5 L55 25" stroke="currentColor" strokeWidth="2" fill="none" />
-                  </svg>
-                </div>
-                <p className="text-center mt-2 text-sm font-medium">Triangular</p>
-              </div>
-              
-              <div
-                onClick={() => onChannelTypeChange('circular')}
-                className={`cursor-pointer p-4 rounded-lg border-2 ${
-                  channelParams.channelType === 'circular' 
-                    ? 'border-primary-500 bg-primary-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="h-16 flex items-center justify-center">
-                  <svg width="60" height="30" viewBox="0 0 60 30" fill="none">
-                    <circle cx="30" cy="15" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
-                  </svg>
-                </div>
-                <p className="text-center mt-2 text-sm font-medium">Circular</p>
-              </div>
-            </div>
-          </div>
+          <ChannelTypeSelector 
+            channelType={channelParams.channelType} 
+            onChannelTypeChange={onChannelTypeChange} 
+          />
           
           {/* Channel Geometry Parameters */}
-          <div className="col-span-1 md:col-span-2">
-            <h3 className="text-lg font-medium mb-3">Geometry Parameters</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Bottom Width - for rectangular and trapezoidal */}
-              {(channelParams.channelType === 'rectangular' || channelParams.channelType === 'trapezoidal') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bottom Width (m)
-                  </label>
-                  <input
-                    type="number"
-                    name="bottomWidth"
-                    value={formValues.bottomWidth}
-                    onChange={handleInputChange}
-                    min="0.1"
-                    step="0.1"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                  />
-                </div>
-              )}
-              
-              {/* Side Slope - for trapezoidal and triangular */}
-              {(channelParams.channelType === 'trapezoidal' || channelParams.channelType === 'triangular') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Side Slope (H:V)
-                  </label>
-                  <input
-                    type="number"
-                    name="sideSlope"
-                    value={formValues.sideSlope || 1}
-                    onChange={handleInputChange}
-                    min="0.1"
-                    step="0.1"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                  />
-                </div>
-              )}
-              
-              {/* Diameter - for circular */}
-              {channelParams.channelType === 'circular' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Diameter (m)
-                  </label>
-                  <input
-                    type="number"
-                    name="diameter"
-                    value={formValues.diameter || 1.0}
-                    onChange={handleInputChange}
-                    min="0.1"
-                    step="0.1"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+          <GeometryInputs 
+            channelType={channelParams.channelType}
+            formValues={formValues}
+            onInputChange={handleInputChange}
+          />
           
           {/* Flow Parameters */}
-          <div className="col-span-1 md:col-span-2">
-            <h3 className="text-lg font-medium mb-3">Flow Parameters</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Manning's Roughness (n)
-                </label>
-                <input
-                  type="number"
-                  name="manningN"
-                  value={formValues.manningN}
-                  onChange={handleInputChange}
-                  min="0.001"
-                  step="0.001"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Channel Slope (m/m)
-                </label>
-                <input
-                  type="number"
-                  name="channelSlope"
-                  value={formValues.channelSlope}
-                  onChange={handleInputChange}
-                  min="0.0001"
-                  step="0.0001"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Discharge (m³/s)
-                </label>
-                <input
-                  type="number"
-                  name="discharge"
-                  value={formValues.discharge}
-                  onChange={handleInputChange}
-                  min="0.1"
-                  step="0.1"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Channel Length (m)
-                </label>
-                <input
-                  type="number"
-                  name="length"
-                  value={formValues.length}
-                  onChange={handleInputChange}
-                  min="10"
-                  step="10"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                />
-              </div>
-            </div>
-          </div>
+          <FlowInputs 
+            formValues={formValues}
+            onInputChange={handleInputChange}
+          />
           
           {/* Boundary Conditions */}
-          <div className="col-span-1 md:col-span-2">
-            <h3 className="text-lg font-medium mb-3">Boundary Conditions</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Boundary Condition Type
-                </label>
-                <select
-                  value={getBoundaryConditionType()}
-                  onChange={handleBoundaryConditionChange}
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
-                >
-                  <option value="critical-downstream">Critical Depth at Downstream</option>
-                  <option value="normal-upstream">Normal Depth at Upstream</option>
-                  <option value="custom">Custom Boundary Conditions</option>
-                </select>
-              </div>
-            </div>
-            
-            {getBoundaryConditionType() === 'custom' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Upstream Depth (m)
-                  </label>
-                  <input
-                    type="number"
-                    name="upstreamDepth"
-                    value={formValues.upstreamDepth || ''}
-                    onChange={handleInputChange}
-                    min="0.01"
-                    step="0.01"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Downstream Depth (m)
-                  </label>
-                  <input
-                    type="number"
-                    name="downstreamDepth"
-                    value={formValues.downstreamDepth || ''}
-                    onChange={handleInputChange}
-                    min="0.01"
-                    step="0.01"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+          <BoundaryConditions 
+            channelParams={channelParams}
+            formValues={formValues}
+            onInputChange={handleInputChange}
+            onBoundaryConditionChange={handleBoundaryConditionChange}
+          />
           
           {/* Action Buttons */}
           <div className="col-span-1 md:col-span-2 mt-6">
