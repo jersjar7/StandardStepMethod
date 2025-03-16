@@ -10,7 +10,7 @@
  */
 
 import { ChannelParams } from '../../../../stores/calculatorSlice';
-import { FlowDepthPoint, WaterSurfaceProfileResults } from '../types';
+import { WaterSurfaceProfileResults } from '../types';
 
 // Import named exports from each module
 import { 

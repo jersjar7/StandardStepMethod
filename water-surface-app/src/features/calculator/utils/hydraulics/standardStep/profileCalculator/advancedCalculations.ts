@@ -4,7 +4,6 @@ import { calculateNormalDepth } from '../../normalFlow';
 import { WaterSurfaceProfileResults, FlowDepthPoint } from '../types';
 import { detectHydraulicJump } from '../jumpDetector';
 import { calculateWaterSurfaceProfile } from './coreCalculator';
-import { interpolateProfileAtStations } from './profileInterpolation';
 
 /**
  * Calculates a high-resolution water surface profile with more calculation points
