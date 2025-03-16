@@ -136,7 +136,7 @@ export function calculateProfileStatistics(profile: FlowDepthPoint[]): ProfileSt
  */
 export function getProfileDescription(
   profile: FlowDepthPoint[], 
-  params: ChannelParams
+  _params: ChannelParams
 ): { classification: string; description: string; details: string } {
   // Sort profile by station
   const sortedProfile = [...profile].sort((a, b) => a.x - b.x);

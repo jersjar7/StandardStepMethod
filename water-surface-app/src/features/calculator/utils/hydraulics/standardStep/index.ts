@@ -54,6 +54,11 @@ import {
   simplifyProfile
 } from './profileUtils';
 
+import { 
+    FlowDepthPoint, 
+    WaterSurfaceProfileResults,
+  } from './types';
+
 // Export types for use in other components
 export type { 
   FlowDepthPoint, 
