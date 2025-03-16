@@ -1,20 +1,26 @@
 import { useState, useCallback } from 'react';
 import { 
-  ChannelParams, 
   CalculationResult, 
   HydraulicJump,
   FlowDepthPoint,
   WaterSurfaceProfileResults
 } from '../types';
+import { ChannelParams } from '../stores/calculatorSlice';
 import { 
-  calculateWaterSurfaceProfile as calculationUtil,
-  calculateCriticalDepth,
-  calculateNormalDepth,
+  calculateWaterSurfaceProfile as calculationUtil
+} from '../utils/hydraulics/standardStep/profileCalculator';
+import {
+  calculateCriticalDepth
+} from '../utils/hydraulics/criticalFlow';
+import {
+  calculateNormalDepth
+} from '../utils/hydraulics/normalFlow';
+import {
   calculateArea,
   calculateTopWidth,
   calculateWetPerimeter,
   calculateHydraulicRadius
-} from '../utils/hydraulics';
+} from '../utils/hydraulics/channelGeometry';
 
 /**
  * Hook for handling hydraulic calculations
@@ -62,9 +68,9 @@ export const useChannelCalculations = () => {
       // Convert hydraulic jump format
       const hydraulicJump: HydraulicJump = output.hydraulicJump ? {
         occurs: true,
-        station: output.hydraulicJump.position,
-        upstreamDepth: output.hydraulicJump.depth1,
-        downstreamDepth: output.hydraulicJump.depth2
+        station: output.hydraulicJump.station,
+        upstreamDepth: output.hydraulicJump.upstreamDepth,
+        downstreamDepth: output.hydraulicJump.downstreamDepth
       } : { occurs: false };
       
       setIsCalculating(false);

@@ -12,7 +12,7 @@
  * to friction and other factors.
  */
 
-import { ChannelParams } from '../../types';
+import { ChannelParams } from '../../stores/calculatorSlice';
 
 // Import core calculation components
 import { 
@@ -24,13 +24,13 @@ import {
   validateCalculationParameters,
   interpolateProfileAtStations,
   createUniformProfile
-} from './profileCalculator';
+} from './standardStep/profileCalculator';
 
 import { 
   calculateNextDepth, 
   calculateNextDepthNewtonRaphson,
   calculatePropertiesAtDepth
-} from './stepCalculator';
+} from './standardStep/stepCalculator';
 
 import { 
   detectHydraulicJump, 
@@ -38,7 +38,7 @@ import {
   incorporateJumpsIntoProfile,
   isJumpBetweenPoints,
   refineJumpLocation
-} from './jumpDetector';
+} from './standardStep/jumpDetector';
 
 import {
   detectFlowTransitions,
@@ -46,18 +46,26 @@ import {
   classifyProfileByTransitions,
   findCriticalDepthLocation,
   findNormalDepthLocation
-} from './transitionDetector';
+} from './standardStep/transitionDetector';
 
 import {
   calculateProfileStatistics,
   getProfileDescription,
   simplifyProfile
-} from './profileUtils';
+} from './standardStep/profileUtils';
 
 import { 
   FlowDepthPoint, 
   WaterSurfaceProfileResults,
-} from './types';
+  StepCalculationParams,
+  ProfileCalculationParams,
+  CalculationPoint,
+  ProfileType,
+  FlowRegime
+} from './standardStep/types';
+
+import { FlowTransition } from './standardStep/transitionDetector';
+import { ProfileStatistics } from './standardStep/profileUtils';
 
 // Export types for use in other components
 export type { 
@@ -66,11 +74,11 @@ export type {
   StepCalculationParams,
   ProfileCalculationParams,
   CalculationPoint
-} from './types';
+};
 
-export { ProfileType, FlowRegime } from './types';
-export type { FlowTransition } from './transitionDetector';
-export type { ProfileStatistics } from './profileUtils';
+export { ProfileType, FlowRegime };
+export type { FlowTransition };
+export type { ProfileStatistics };
 
 /**
  * Main export for water surface profile calculation
