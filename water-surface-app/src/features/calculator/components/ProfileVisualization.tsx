@@ -1,17 +1,36 @@
 import React, { useEffect, useState } from 'react';
-import { CalculationResult } from '../stores/calculatorSlice';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { CalculationResult, ProfileType } from '../types';
+import {  
+  PROFILE_TYPE_DESCRIPTIONS, 
+  CHANNEL_SLOPE_DESCRIPTIONS 
+} from '../stores/types/resultTypes';
 
 interface ProfileVisualizationProps {
   results: CalculationResult[];
+  profileType?: ProfileType;
+  channelSlope?: 'mild' | 'critical' | 'steep';
 }
 
-const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({ results }) => {
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [profileType, setProfileType] = useState<string>('');
+interface ChartDataPoint {
+  station: number;
+  waterSurface: number;
+  channelBottom: number;
+  criticalDepth?: number;
+  normalDepth?: number;
+  energy?: number;
+}
+
+const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({ 
+  results,
+  profileType = ProfileType.UNKNOWN,
+  channelSlope = 'mild'
+}) => {
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [showChannelBottom, setShowChannelBottom] = useState<boolean>(true);
   const [showCriticalDepth, setShowCriticalDepth] = useState<boolean>(true);
   const [showNormalDepth, setShowNormalDepth] = useState<boolean>(true);
+  const [showEnergyLine, setShowEnergyLine] = useState<boolean>(true);
   
   useEffect(() => {
     if (results.length > 0) {
@@ -26,35 +45,18 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({ results }) 
       }));
       
       setChartData(formattedData);
-      
-      // Determine profile type
-      const normalDepth = results[0].normalDepth || 0;
-      const criticalDepth = results[0].criticalDepth || 0;
-      const averageDepth = results.reduce((sum, r) => sum + r.depth, 0) / results.length;
-      
-      if (normalDepth > criticalDepth) {
-        // Mild slope
-        if (averageDepth > normalDepth) {
-          setProfileType('M1 - Backwater Profile (Mild Slope)');
-        } else if (averageDepth < normalDepth && averageDepth > criticalDepth) {
-          setProfileType('M2 - Drawdown Profile (Mild Slope)');
-        } else {
-          setProfileType('M3 - Rapidly Varied Profile (Mild Slope)');
-        }
-      } else if (normalDepth < criticalDepth) {
-        // Steep slope
-        if (averageDepth > criticalDepth) {
-          setProfileType('S1 - Backwater Profile (Steep Slope)');
-        } else if (averageDepth < criticalDepth && averageDepth > normalDepth) {
-          setProfileType('S2 - Drawdown Profile (Steep Slope)');
-        } else {
-          setProfileType('S3 - Rapidly Varied Profile (Steep Slope)');
-        }
-      } else {
-        setProfileType('Critical Slope Profile');
-      }
     }
   }, [results]);
+  
+  // Profile type and description
+  const profileTypeValue = profileType || 
+    (results.length > 0 ? determineProfileType(results) : ProfileType.UNKNOWN);
+  
+  const profileDescription = PROFILE_TYPE_DESCRIPTIONS[profileTypeValue] || 
+    "Water Surface Profile";
+  
+  const channelSlopeDescription = CHANNEL_SLOPE_DESCRIPTIONS[channelSlope] || 
+    "Channel Classification";
   
   // Custom tooltip component
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -62,24 +64,58 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({ results }) 
       return (
         <div className="bg-white p-3 border border-gray-300 shadow-lg rounded-lg">
           <p className="text-sm font-medium text-gray-900">Station: {label} m</p>
-          <p className="text-sm text-blue-600">Water Surface: {payload[0].value.toFixed(3)} m</p>
-          {payload[1] && <p className="text-sm text-gray-600">Channel Bottom: {payload[1].value.toFixed(3)} m</p>}
-          {payload[2] && <p className="text-sm text-red-600">Critical Depth: {payload[2].value.toFixed(3)} m</p>}
-          {payload[3] && <p className="text-sm text-green-600">Normal Depth: {payload[3].value.toFixed(3)} m</p>}
-          {payload[4] && <p className="text-sm text-purple-600">Energy Grade Line: {payload[4].value.toFixed(3)} m</p>}
+          {payload.map((entry: any, index: number) => {
+            // Skip if value is undefined or hidden series
+            if (entry.value === undefined) return null;
+            if (entry.dataKey === 'channelBottom' && !showChannelBottom) return null;
+            if (entry.dataKey === 'criticalDepth' && !showCriticalDepth) return null;
+            if (entry.dataKey === 'normalDepth' && !showNormalDepth) return null;
+            if (entry.dataKey === 'energy' && !showEnergyLine) return null;
+            
+            // Set color based on dataKey
+            let color = entry.color;
+            let label = entry.name;
+            
+            return (
+              <p 
+                key={`tooltip-${index}`} 
+                className="text-sm" 
+                style={{ color }}
+              >
+                {label}: {entry.value.toFixed(3)} m
+              </p>
+            );
+          })}
         </div>
       );
     }
     return null;
   };
   
+  // If no results, show empty state
+  if (results.length === 0) {
+    return (
+      <div className="bg-white shadow rounded-lg p-6">
+        <h3 className="text-lg font-medium text-gray-900">Water Surface Profile Visualization</h3>
+        <div className="p-4 mt-4 bg-gray-50 rounded-lg flex items-center justify-center h-72">
+          <p className="text-gray-500">No data available. Run a calculation to see the water surface profile.</p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="bg-white shadow rounded-lg p-6">
       <div className="mb-4">
         <h3 className="text-lg font-medium text-gray-900">Water Surface Profile Visualization</h3>
-        <p className="mt-1 text-sm text-gray-600">
-          {profileType}
-        </p>
+        <div className="mt-2">
+          <p className="text-sm text-gray-600">
+            {profileDescription}
+          </p>
+          <p className="text-sm text-gray-600">
+            {channelSlopeDescription}
+          </p>
+        </div>
       </div>
       
       <div className="flex flex-wrap gap-4 mb-4">
@@ -111,6 +147,16 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({ results }) 
             className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
           />
           <span className="ml-2 text-sm text-gray-700">Show Normal Depth</span>
+        </label>
+        
+        <label className="inline-flex items-center">
+          <input
+            type="checkbox"
+            checked={showEnergyLine}
+            onChange={() => setShowEnergyLine(!showEnergyLine)}
+            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+          />
+          <span className="ml-2 text-sm text-gray-700">Show Energy Grade Line</span>
         </label>
       </div>
       
@@ -177,15 +223,17 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({ results }) 
               />
             )}
             
-            <Line
-              type="monotone"
-              dataKey="energy"
-              name="Energy Grade Line"
-              stroke="#8b5cf6"
-              strokeWidth={2}
-              strokeDasharray="3 3"
-              dot={false}
-            />
+            {showEnergyLine && (
+              <Line
+                type="monotone"
+                dataKey="energy"
+                name="Energy Grade Line"
+                stroke="#8b5cf6"
+                strokeWidth={2}
+                strokeDasharray="3 3"
+                dot={false}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -218,5 +266,46 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({ results }) 
     </div>
   );
 };
+
+/**
+ * Determine profile type from results
+ * @param results Calculation results
+ * @returns Profile type
+ */
+function determineProfileType(results: CalculationResult[]): ProfileType {
+  if (results.length === 0) return ProfileType.UNKNOWN;
+  
+  // Get first result which contains critical and normal depths
+  const firstResult = results[0];
+  const criticalDepth = firstResult.criticalDepth || 0;
+  const normalDepth = firstResult.normalDepth || 0;
+  
+  // Get average depth
+  const averageDepth = results.reduce((sum, r) => sum + r.depth, 0) / results.length;
+  
+  // Determine profile type
+  if (normalDepth > criticalDepth) {
+    // Mild slope
+    if (averageDepth > normalDepth) {
+      return ProfileType.M1;
+    } else if (averageDepth < normalDepth && averageDepth > criticalDepth) {
+      return ProfileType.M2;
+    } else {
+      return ProfileType.M3;
+    }
+  } else if (normalDepth < criticalDepth) {
+    // Steep slope
+    if (averageDepth > criticalDepth) {
+      return ProfileType.S1;
+    } else if (averageDepth < criticalDepth && averageDepth > normalDepth) {
+      return ProfileType.S2;
+    } else {
+      return ProfileType.S3;
+    }
+  } else {
+    // Critical slope
+    return ProfileType.C2;
+  }
+}
 
 export default ProfileVisualization;

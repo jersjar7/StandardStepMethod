@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
-import { CalculationResult } from '../stores/calculatorSlice';
+import { CalculationResult, HydraulicJump } from '../types';
+import { getFlowRegimeDescription } from '../stores/types/resultTypes';
 
 interface ResultsTableProps {
   results: CalculationResult[];
+  hydraulicJump?: HydraulicJump;
+  onSelectResult?: (index: number) => void;
 }
 
-const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
+const ResultsTable: React.FC<ResultsTableProps> = ({ 
+  results, 
+  hydraulicJump,
+  onSelectResult 
+}) => {
   const [currentPage, setCurrentPage] = useState(1);
   const resultsPerPage = 10;
   
@@ -25,8 +32,26 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
       setCurrentPage(page);
     }
   };
+
+  // Handle row selection
+  const handleRowClick = (index: number) => {
+    if (onSelectResult) {
+      // Convert index in the current page to index in the overall results array
+      const globalIndex = (currentPage - 1) * resultsPerPage + index;
+      onSelectResult(globalIndex);
+    }
+  };
   
   const currentResults = getCurrentResults();
+  
+  // Show a message if no results are available
+  if (results.length === 0) {
+    return (
+      <div className="bg-white shadow rounded-lg p-6">
+        <p className="text-gray-500">No calculation results available. Please run a calculation first.</p>
+      </div>
+    );
+  }
   
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -68,36 +93,50 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {currentResults.map((result, index) => (
-              <tr 
-                key={index}
-                className={result.froudeNumber > 1 ? 'bg-yellow-50' : result.froudeNumber < 1 ? 'bg-blue-50' : ''}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {result.station.toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {result.depth.toFixed(3)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {result.velocity.toFixed(3)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {result.area.toFixed(3)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {result.topWidth.toFixed(3)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {result.hydraulicRadius.toFixed(3)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {result.energy.toFixed(3)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {result.froudeNumber.toFixed(3)}
-                </td>
-              </tr>
-            ))}
+            {currentResults.map((result, index) => {
+              // Determine flow regime class for styling
+              const flowRegimeClass = result.froudeNumber > 1 
+                ? 'bg-yellow-50' // Supercritical
+                : result.froudeNumber < 1 
+                  ? 'bg-blue-50' // Subcritical
+                  : ''; // Critical
+              
+              return (
+                <tr 
+                  key={index}
+                  className={`${flowRegimeClass} cursor-pointer hover:bg-gray-50`}
+                  onClick={() => handleRowClick(index)}
+                >
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {result.station.toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {result.depth.toFixed(3)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {result.velocity.toFixed(3)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {result.area.toFixed(3)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {result.topWidth.toFixed(3)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {result.hydraulicRadius.toFixed(3)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {result.energy.toFixed(3)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {result.froudeNumber.toFixed(3)}
+                    <span className="ml-2 text-xs text-gray-500">
+                      {getFlowRegimeDescription(result.froudeNumber)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -127,23 +166,38 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
         </div>
       )}
       
+      {/* Summary information */}
       <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
           <div>
             <span className="text-sm font-medium text-gray-500">
               Total Results: {results.length}
             </span>
           </div>
-          <div>
-            <span className="text-sm font-medium text-gray-500 mr-4">
-              {results[0].normalDepth && `Normal Depth: ${results[0].normalDepth.toFixed(3)} m`}
-            </span>
-            <span className="text-sm font-medium text-gray-500">
-              {results[0].criticalDepth && `Critical Depth: ${results[0].criticalDepth.toFixed(3)} m`}
-            </span>
-          </div>
+          
+          {results.length > 0 && (
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+              <span className="text-sm font-medium text-gray-500">
+                {results[0].normalDepth && `Normal Depth: ${results[0].normalDepth.toFixed(3)} m`}
+              </span>
+              <span className="text-sm font-medium text-gray-500">
+                {results[0].criticalDepth && `Critical Depth: ${results[0].criticalDepth.toFixed(3)} m`}
+              </span>
+            </div>
+          )}
         </div>
       </div>
+      
+      {/* Hydraulic Jump Information */}
+      {hydraulicJump?.occurs && (
+        <div className="px-6 py-4 bg-yellow-50 border-t border-yellow-200">
+          <h4 className="text-sm font-medium text-yellow-800">Hydraulic Jump Detected</h4>
+          <p className="mt-1 text-sm text-yellow-700">
+            A hydraulic jump occurs at station {hydraulicJump.station?.toFixed(2)} m.
+            The water depth changes from {hydraulicJump.upstreamDepth?.toFixed(3)} m to {hydraulicJump.downstreamDepth?.toFixed(3)} m.
+          </p>
+        </div>
+      )}
     </div>
   );
 };
