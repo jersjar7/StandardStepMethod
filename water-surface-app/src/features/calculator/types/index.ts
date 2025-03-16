@@ -3,6 +3,14 @@
  * This file serves as the single source of truth for all types used throughout the calculator feature
  */
 
+// Import types from specialized modules
+import { 
+  HydraulicJump, 
+  BaseHydraulicJump, 
+  OccurringHydraulicJump, 
+  NoHydraulicJump 
+} from './hydraulicJumpTypes';
+
 /**
  * Unit system
  */
@@ -87,18 +95,13 @@ export interface FlowDepthPoint {
   normalDepth: number;       // Normal depth
 }
 
-/**
- * Hydraulic jump result
- */
-export interface HydraulicJump {
-  occurs: boolean;           // Whether a hydraulic jump occurs
-  station?: number;          // Location of jump
-  upstreamDepth?: number;    // Upstream depth (y1)
-  downstreamDepth?: number;  // Downstream depth (y2)
-  energyLoss?: number;       // Energy loss at jump
-  froudeNumber1?: number;    // Upstream Froude number
-  length?: number;           // Approximate length of hydraulic jump
-}
+// Re-export hydraulic jump types
+export type { 
+  HydraulicJump, 
+  BaseHydraulicJump, 
+  OccurringHydraulicJump, 
+  NoHydraulicJump 
+};
 
 /**
  * Calculation result for a single point
@@ -122,47 +125,16 @@ export interface CalculationResult {
  */
 export interface WaterSurfaceProfileResults {
   flowProfile: FlowDepthPoint[];    // Array of flow depth points
-  profileType: string;              // Profile classification (M1, M2, S1, etc.)
+  profileType: ProfileType;         // Profile classification using enum
   channelType: string;              // Channel slope classification (mild, steep, critical)
   criticalDepth: number;            // Critical depth for the channel and discharge
   normalDepth: number;              // Normal depth for the channel and discharge
   isChoking: boolean;               // Indicates if choking occurred
   hydraulicJump?: HydraulicJump;    // Hydraulic jump details, if any
-}
-
-/**
- * Flow transition
- */
-export interface FlowTransition {
-  fromRegime: FlowRegime;       // Initial flow regime
-  toRegime: FlowRegime;         // Final flow regime
-  station: number;              // Transition location
-  fromDepth: number;            // Depth before transition
-  toDepth: number;              // Depth after transition
-  fromFroude: number;           // Froude number before transition
-  toFroude: number;             // Froude number after transition
-  isHydraulicJump: boolean;     // Whether this is a hydraulic jump
-}
-
-/**
- * Profile statistics
- */
-export interface ProfileStatistics {
-  minDepth: number;                // Minimum depth
-  maxDepth: number;                // Maximum depth
-  avgDepth: number;                // Average depth
-  minVelocity: number;             // Minimum velocity
-  maxVelocity: number;             // Maximum velocity
-  avgVelocity: number;             // Average velocity
-  minFroude: number;               // Minimum Froude number
-  maxFroude: number;               // Maximum Froude number
-  avgFroude: number;               // Average Froude number
-  minEnergy: number;               // Minimum specific energy
-  maxEnergy: number;               // Maximum specific energy
-  avgEnergy: number;               // Average specific energy
-  length: number;                  // Profile length
-  numPoints: number;               // Number of calculation points
-  predominantFlowRegime: string;   // Predominant flow regime
+  // Optional properties for extended analysis
+  profileDescription?: string;      // Human-readable profile description
+  profileDetails?: string;          // Detailed information about the profile
+  stats?: ProfileStatistics;        // Statistical analysis of the profile
 }
 
 /**
@@ -191,22 +163,38 @@ export interface ProfileCalculationParams {
 }
 
 /**
- * Export options
+ * Profile statistics
  */
-export interface ExportOptions {
-  format: 'csv' | 'json' | 'report';  // Export format
-  filename?: string;                  // Optional filename
-  includeChannelParams?: boolean;     // Whether to include channel parameters
-  includeHeaders?: boolean;           // Whether to include headers (for CSV)
-  decimalPlaces?: number;             // Number of decimal places
+export interface ProfileStatistics {
+  minDepth: number;                // Minimum depth
+  maxDepth: number;                // Maximum depth
+  avgDepth: number;                // Average depth
+  minVelocity: number;             // Minimum velocity
+  maxVelocity: number;             // Maximum velocity
+  avgVelocity: number;             // Average velocity
+  minFroude: number;               // Minimum Froude number
+  maxFroude: number;               // Maximum Froude number
+  avgFroude: number;               // Average Froude number
+  minEnergy: number;               // Minimum specific energy
+  maxEnergy: number;               // Maximum specific energy
+  avgEnergy: number;               // Average specific energy
+  length: number;                  // Profile length
+  numPoints: number;               // Number of calculation points
+  predominantFlowRegime: string;   // Predominant flow regime
 }
 
 /**
- * Validation result
+ * Flow transition
  */
-export interface ValidationResult {
-  isValid: boolean;
-  errors: Record<string, string>;
+export interface FlowTransition {
+  fromRegime: FlowRegime;       // Initial flow regime
+  toRegime: FlowRegime;         // Final flow regime
+  station: number;              // Transition location
+  fromDepth: number;            // Depth before transition
+  toDepth: number;              // Depth after transition
+  fromFroude: number;           // Froude number before transition
+  toFroude: number;             // Froude number after transition
+  isHydraulicJump: boolean;     // Whether this is a hydraulic jump
 }
 
 /**
@@ -219,4 +207,15 @@ export interface CalculatorState {
   isCalculating: boolean;
   error: string | null;
   selectedResultIndex?: number;
+}
+
+/**
+ * Export options
+ */
+export interface ExportOptions {
+  format: 'csv' | 'json' | 'report';  // Export format
+  filename?: string;                  // Optional filename
+  includeChannelParams?: boolean;     // Whether to include channel parameters
+  includeHeaders?: boolean;           // Whether to include headers (for CSV)
+  decimalPlaces?: number;             // Number of decimal places
 }

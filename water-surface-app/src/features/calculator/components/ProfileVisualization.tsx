@@ -48,7 +48,7 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
     }
   }, [results]);
   
-  // Profile type and description
+  // Get profile type description
   const profileTypeValue = profileType || 
     (results.length > 0 ? determineProfileType(results) : ProfileType.UNKNOWN);
   

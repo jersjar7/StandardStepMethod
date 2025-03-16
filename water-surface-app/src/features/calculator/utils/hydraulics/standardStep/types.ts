@@ -12,7 +12,7 @@ import {
   ChannelSlope,
   ProfileType,
   FlowRegime,
-  WaterSurfaceProfileResults,
+  WaterSurfaceProfileResults as BaseWaterSurfaceProfileResults,
   StepCalculationParams,
   ProfileCalculationParams
 } from '../../../types';
@@ -20,13 +20,28 @@ import {
 // Re-export types from central definition
 export type {
   FlowDepthPoint,
-  WaterSurfaceProfileResults,
   StepCalculationParams,
   ProfileCalculationParams,
   ChannelParams
 };
 
+// Re-export enums
 export { ProfileType, FlowRegime };
+
+// Extended WaterSurfaceProfileResults interface that uses ProfileType enum directly
+export interface WaterSurfaceProfileResults extends Omit<BaseWaterSurfaceProfileResults, 'profileType'> {
+  flowProfile: FlowDepthPoint[];
+  profileType: ProfileType;  // Using ProfileType enum instead of string
+  channelType: string;
+  criticalDepth: number;
+  normalDepth: number;
+  isChoking: boolean;
+  hydraulicJump?: HydraulicJump;
+  // Optional properties for additional analysis
+  profileDescription?: string;
+  profileDetails?: string;
+  stats?: ProfileStatistics;
+}
 
 /**
  * Interface for calculation result at a single point
@@ -46,7 +61,7 @@ export interface CalculationPoint {
  * Extended hydraulic jump result with additional technical details
  * used for internal calculations in the standard step implementation
  */
-export interface HydraulicJumpResult extends HydraulicJump {
+export interface HydraulicJumpResult extends Omit<HydraulicJump, 'occurs'> {
   position: number;             // Location of jump (required internally)
   depth1: number;               // Upstream depth (required internally)
   depth2: number;               // Downstream depth (required internally)
@@ -92,11 +107,33 @@ export interface DetailedStandardStepResult extends WaterSurfaceProfileResults {
 }
 
 /**
+ * Interface for profile statistics
+ */
+export interface ProfileStatistics {
+  minDepth: number;
+  maxDepth: number;
+  avgDepth: number;
+  minVelocity: number;
+  maxVelocity: number;
+  avgVelocity: number;
+  minFroude: number;
+  maxFroude: number;
+  avgFroude: number;
+  minEnergy: number;
+  maxEnergy: number;
+  avgEnergy: number;
+  length: number;
+  numPoints: number;
+  predominantFlowRegime: string;
+}
+
+/**
  * Function to convert between HydraulicJumpResult and HydraulicJump
  * @param result Detailed hydraulic jump result
  * @returns Simplified hydraulic jump for use in UI
  */
-export function convertToHydraulicJump(result: HydraulicJumpResult): HydraulicJump {
+export function convertToHydraulicJump(result: HydraulicJumpResult | undefined): HydraulicJump {
+  if (!result) return { occurs: false };
   return {
     occurs: true,
     station: result.position,
@@ -145,7 +182,7 @@ export function createWaterSurfaceResults(
   
   return {
     flowProfile: flowPoints,
-    profileType: profileType.toString(),
+    profileType, // Using ProfileType enum directly
     channelType: channelSlope,
     criticalDepth,
     normalDepth,

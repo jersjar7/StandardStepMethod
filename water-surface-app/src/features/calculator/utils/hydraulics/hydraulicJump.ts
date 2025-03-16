@@ -1,22 +1,14 @@
 import { ChannelParams } from '../../types';
+import { 
+  HydraulicJumpResult, 
+  classifyHydraulicJump as classifyJump 
+} from '../../types/hydraulicJumpTypes';
 import { calculateArea, calculateTopWidth } from './channelGeometry';
 import { calculateVelocity, calculateFroudeNumber } from './flowParameters';
 
 // Gravitational acceleration constant
 const G = 9.81; // m/s² in metric
 const G_IMPERIAL = 32.2; // ft/s² in imperial
-
-/**
- * Interface for hydraulic jump result
- */
-export interface HydraulicJumpResult {
-  station: number;         // Location of jump
-  upstreamDepth: number;   // Upstream depth
-  downstreamDepth: number; // Downstream depth
-  energyLoss: number;      // Energy loss at jump
-  froudeNumber1: number;   // Upstream Froude number
-  length: number;          // Approximate length of hydraulic jump
-}
 
 /**
  * Checks if a hydraulic jump is possible at the given conditions
@@ -117,10 +109,25 @@ export function calculateSequentDepth(upstreamDepth: number, params: ChannelPara
     }
     
     // Adjust depth2 based on error
-    if (error > 0) {
-      downstreamDepth += 0.01;
+    // Use Newton-Raphson method for faster convergence
+    const h = 0.001 * downstreamDepth; // small step for derivative approximation
+    const derivative = (evaluateFunction(downstreamDepth + h) - error) / h;
+    
+    // Avoid division by very small numbers
+    if (Math.abs(derivative) > 0.00001) {
+      downstreamDepth = downstreamDepth - error / derivative;
     } else {
-      downstreamDepth -= 0.01;
+      // Fallback to simpler method if derivative is too small
+      if (error > 0) {
+        downstreamDepth += 0.01;
+      } else {
+        downstreamDepth -= 0.01;
+      }
+    }
+    
+    // Ensure depth remains positive
+    if (downstreamDepth <= 0) {
+      downstreamDepth = 0.01;
     }
     
     iterations++;
@@ -215,9 +222,34 @@ export function calculateEnergyLoss(upstreamDepth: number, downstreamDepth: numb
  * @param froudeNumber1 Upstream Froude number
  * @returns Approximate length of hydraulic jump
  */
-export function calculateJumpLength(upstreamDepth: number, downstreamDepth: number, froudeNumber1: number): number {
-  // Approximate formula: L = 6 * y2
-  return 6 * downstreamDepth;
+export function calculateJumpLength(
+  upstreamDepth: number, 
+  downstreamDepth: number, 
+  froudeNumber1: number
+): number {
+  // Use a more accurate empirical formula based on Froude number
+  if (froudeNumber1 < 1.7) {
+    // Undular jump
+    return 5 * downstreamDepth; 
+  } else if (froudeNumber1 < 4.5) {
+    // Weak or oscillating jump
+    return 6 * downstreamDepth;
+  } else {
+    // Steady or strong jump
+    return 7 * downstreamDepth;
+  }
+}
+
+/**
+ * Calculate the efficiency of the hydraulic jump
+ * @param energyLoss Energy loss at the jump
+ * @param upstreamEnergy Specific energy upstream of the jump
+ * @returns Jump efficiency as a ratio (0-1)
+ */
+function calculateJumpEfficiency(energyLoss: number, upstreamEnergy: number): number {
+  if (upstreamEnergy <= 0) return 0;
+  // Efficiency = 1 - E_loss/E1
+  return 1 - (energyLoss / upstreamEnergy);
 }
 
 /**
@@ -225,16 +257,16 @@ export function calculateJumpLength(upstreamDepth: number, downstreamDepth: numb
  * @param upstreamDepth Upstream water depth
  * @param station Station where jump occurs
  * @param params Channel parameters
- * @returns Hydraulic jump details or undefined if jump is not possible
+ * @returns Hydraulic jump details or null if jump is not possible
  */
 export function calculateHydraulicJump(
   upstreamDepth: number, 
   station: number, 
   params: ChannelParams
-): HydraulicJumpResult | undefined {
+): HydraulicJumpResult | null {
   // Check if hydraulic jump is possible
   if (!isHydraulicJumpPossible(upstreamDepth, params)) {
-    return undefined;
+    return null;
   }
   
   // Calculate upstream properties
@@ -251,33 +283,33 @@ export function calculateHydraulicJump(
   // Calculate jump length
   const jumpLength = calculateJumpLength(upstreamDepth, downstreamDepth, froudeNumber1);
   
+  // Calculate sequent depth ratio
+  const sequentDepthRatio = downstreamDepth / upstreamDepth;
+  
+  // Calculate specific energy upstream
+  const g = params.units === 'imperial' ? G_IMPERIAL : G;
+  const upstreamEnergy = upstreamDepth + (Math.pow(velocity1, 2) / (2 * g));
+  
+  // Calculate jump efficiency
+  const efficiency = calculateJumpEfficiency(energyLoss, upstreamEnergy);
+  
+  // Classify jump based on Froude number
+  const jumpType = classifyJump(froudeNumber1);
+  
+  // Create and return the hydraulic jump result
   return {
-    station,
-    upstreamDepth,
-    downstreamDepth,
-    energyLoss,
-    froudeNumber1,
-    length: jumpLength
+    occurs: true,
+    position: station,
+    station: station,
+    depth1: upstreamDepth,
+    depth2: downstreamDepth,
+    upstreamDepth: upstreamDepth,
+    downstreamDepth: downstreamDepth,
+    energyLoss: energyLoss,
+    froudeNumber1: froudeNumber1,
+    length: jumpLength,
+    sequentDepthRatio: sequentDepthRatio,
+    efficiency: efficiency,
+    jumpType: jumpType
   };
-}
-
-/**
- * Classifies the hydraulic jump based on upstream Froude number
- * @param froudeNumber1 Upstream Froude number
- * @returns Classification of hydraulic jump
- */
-export function classifyHydraulicJump(froudeNumber1: number): string {
-  if (froudeNumber1 < 1) {
-    return 'No jump - subcritical flow';
-  } else if (froudeNumber1 >= 1 && froudeNumber1 < 1.7) {
-    return 'Undular jump';
-  } else if (froudeNumber1 >= 1.7 && froudeNumber1 < 2.5) {
-    return 'Weak jump';
-  } else if (froudeNumber1 >= 2.5 && froudeNumber1 < 4.5) {
-    return 'Oscillating jump';
-  } else if (froudeNumber1 >= 4.5 && froudeNumber1 < 9.0) {
-    return 'Steady jump';
-  } else {
-    return 'Strong jump';
-  }
 }

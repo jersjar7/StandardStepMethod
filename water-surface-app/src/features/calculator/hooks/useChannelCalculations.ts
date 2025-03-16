@@ -3,9 +3,12 @@ import {
   CalculationResult, 
   HydraulicJump,
   FlowDepthPoint,
-  WaterSurfaceProfileResults
+  WaterSurfaceProfileResults,
+  ChannelParams
 } from '../types';
-import { ChannelParams } from '../stores/calculatorSlice';
+import { 
+  convertToStandardHydraulicJump 
+} from '../types/hydraulicJumpTypes';
 import { 
   calculateWaterSurfaceProfile as calculationUtil
 } from '../utils/hydraulics/standardStep/profileCalculator';
@@ -33,6 +36,31 @@ export const useChannelCalculations = () => {
   const [error, setError] = useState<string | null>(null);
 
   /**
+   * Convert flow points from calculation utility to standard calculation results
+   * @param points Flow depth points from calculation
+   * @param params Channel parameters
+   * @returns Standardized calculation results
+   */
+  const convertFlowPointsToResults = (
+    points: FlowDepthPoint[],
+    params: ChannelParams
+  ): CalculationResult[] => {
+    return points.map(point => ({
+      station: point.x,
+      depth: point.y,
+      velocity: point.velocity,
+      area: calculateArea(point.y, params),
+      topWidth: calculateTopWidth(point.y, params),
+      wetPerimeter: calculateWetPerimeter(point.y, params),
+      hydraulicRadius: calculateHydraulicRadius(point.y, params),
+      energy: point.specificEnergy,
+      froudeNumber: point.froudeNumber,
+      criticalDepth: point.criticalDepth,
+      normalDepth: point.normalDepth
+    }));
+  };
+
+  /**
    * Calculate the water surface profile for a given channel
    * 
    * @param params Channel parameters
@@ -51,27 +79,10 @@ export const useChannelCalculations = () => {
       const output: WaterSurfaceProfileResults = calculationUtil(params);
       
       // Convert from the hydraulics utility format to our application format
-      const results: CalculationResult[] = output.flowProfile.map((point: FlowDepthPoint) => ({
-        station: point.x,
-        depth: point.y,
-        velocity: point.velocity,
-        area: calculateArea(point.y, params), // Calculate area based on depth
-        topWidth: calculateTopWidth(point.y, params),
-        wetPerimeter: calculateWetPerimeter(point.y, params),
-        hydraulicRadius: calculateHydraulicRadius(point.y, params),
-        energy: point.specificEnergy,
-        froudeNumber: point.froudeNumber,
-        criticalDepth: point.criticalDepth,
-        normalDepth: point.normalDepth
-      }));
+      const results = convertFlowPointsToResults(output.flowProfile, params);
       
-      // Convert hydraulic jump format
-      const hydraulicJump: HydraulicJump = output.hydraulicJump ? {
-        occurs: true,
-        station: output.hydraulicJump.station,
-        upstreamDepth: output.hydraulicJump.upstreamDepth,
-        downstreamDepth: output.hydraulicJump.downstreamDepth
-      } : { occurs: false };
+      // Convert hydraulic jump format using the standardized conversion function
+      const hydraulicJump = output.hydraulicJump || { occurs: false };
       
       setIsCalculating(false);
       return {

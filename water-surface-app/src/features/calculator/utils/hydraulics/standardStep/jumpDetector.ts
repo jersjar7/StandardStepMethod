@@ -1,9 +1,13 @@
-import { ChannelParams } from '../../../stores/calculatorSlice';
+import { ChannelParams } from '../../../types';
+import { 
+  HydraulicJumpResult, 
+  convertToStandardHydraulicJump,
+  HydraulicJump
+} from '../../../types/hydraulicJumpTypes';
 import { FlowDepthPoint } from './types';
 import { 
   isHydraulicJumpPossible, 
-  calculateHydraulicJump, 
-  HydraulicJumpResult 
+  calculateHydraulicJump 
 } from '../hydraulicJump';
 
 /**
@@ -25,12 +29,12 @@ export function isJumpBetweenPoints(
  * Detects a hydraulic jump in the profile and calculates its properties
  * @param profile Array of flow depth points
  * @param params Channel parameters
- * @returns Hydraulic jump details or undefined if no jump is detected
+ * @returns Hydraulic jump details or null if no jump is detected
  */
 export function detectHydraulicJump(
   profile: FlowDepthPoint[],
   params: ChannelParams
-): HydraulicJumpResult | undefined {
+): HydraulicJumpResult | null {
   // Sort profile by station to ensure correct order
   const sortedProfile = [...profile].sort((a, b) => a.x - b.x);
   
@@ -51,7 +55,7 @@ export function detectHydraulicJump(
     }
   }
   
-  return undefined;
+  return null;
 }
 
 /**
@@ -65,7 +69,7 @@ export function refineJumpLocation(
   profile: FlowDepthPoint[],
   jumpLocation: number,
   params: ChannelParams
-): HydraulicJumpResult | undefined {
+): HydraulicJumpResult | null {
   // Sort profile by station
   const sortedProfile = [...profile].sort((a, b) => a.x - b.x);
   
@@ -87,7 +91,7 @@ export function refineJumpLocation(
   
   // Check if there's a transition between these points
   for (let i = beforeIndex; i < afterIndex; i++) {
-    if (isJumpBetweenPoints(sortedProfile[i], sortedProfile[i+1])) {
+    if (i + 1 < sortedProfile.length && isJumpBetweenPoints(sortedProfile[i], sortedProfile[i+1])) {
       // Calculate more accurate jump location based on Froude number gradient
       const fr1 = sortedProfile[i].froudeNumber;
       const fr2 = sortedProfile[i+1].froudeNumber;
@@ -193,7 +197,7 @@ export function incorporateJumpsIntoProfile(
             x: jump.position - 0.01, // Just before jump
             y: jump.depth1,
             velocity: currentPoint.velocity, // Approximate values
-            froudeNumber: jump.froudeNumber1,
+            froudeNumber: jump.froudeNumber1 ?? 1.0, // Use default if undefined
             specificEnergy: currentPoint.specificEnergy, // Approximate
             criticalDepth: currentPoint.criticalDepth,
             normalDepth: currentPoint.normalDepth
@@ -203,8 +207,10 @@ export function incorporateJumpsIntoProfile(
             x: jump.position + 0.01, // Just after jump
             y: jump.depth2,
             velocity: nextPoint.velocity, // Approximate values
-            froudeNumber: 1 / jump.froudeNumber1, // Approximate
-            specificEnergy: nextPoint.specificEnergy, // Approximate
+            froudeNumber: (jump.froudeNumber1 && jump.froudeNumber1 > 0) 
+              ? 1 / jump.froudeNumber1 
+              : 0.5, // Provide default
+            specificEnergy: jumpPointBefore.specificEnergy - (jump.energyLoss ?? 0), // Handle undefined
             criticalDepth: nextPoint.criticalDepth,
             normalDepth: nextPoint.normalDepth
           };
