@@ -1,5 +1,9 @@
 import { ChannelParams } from '../../stores/calculatorSlice';
-import { calculateArea, calculateTopWidth } from './channelGeometry';
+import { 
+  calculateArea, 
+  calculateTopWidth, 
+  calculateWetPerimeter 
+} from './channelGeometry';
 import { 
   calculateVelocity, 
   calculateFroudeNumber, 
@@ -7,7 +11,17 @@ import {
   calculateFrictionSlope,
   determineFlowRegime
 } from './flowParameters';
-import { calculateHydraulicJump, isHydraulicJumpPossible } from './hydraulicJump';
+import { 
+  calculateCriticalDepth 
+} from './criticalFlow';
+import { 
+  calculateNormalDepth, 
+  classifyChannelSlope 
+} from './normalFlow';
+import { 
+  calculateHydraulicJump, 
+  isHydraulicJumpPossible 
+} from './hydraulicJump';
 
 // Gravitational acceleration constant
 const G = 9.81; // m/s² in metric
@@ -45,11 +59,6 @@ export interface WaterSurfaceProfileResults {
  * @returns Water surface profile calculation results
  */
 export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfaceProfileResults {
-  // Import critical and normal depth functions
-  // Importing here to avoid circular dependencies
-  const { calculateCriticalDepth } = require('./criticalFlow');
-  const { calculateNormalDepth, classifyChannelSlope } = require('./normalFlow');
-  
   // Calculate critical and normal depths
   const criticalDepth = calculateCriticalDepth(params);
   const normalDepth = calculateNormalDepth(params);
@@ -309,58 +318,6 @@ function calculateNextDepth(
   }
   
   return nextY;
-}
-
-/**
- * Calculates the wetted perimeter for a given flow depth
- * 
- * Note: This function should be in channelGeometry.ts but is duplicated
- * here to avoid circular dependencies
- * 
- * @param depth Flow depth
- * @param params Channel parameters
- * @returns Wetted perimeter
- */
-function calculateWetPerimeter(depth: number, params: ChannelParams): number {
-  switch (params.channelType) {
-    case 'rectangular':
-      return params.bottomWidth + 2 * depth;
-      
-    case 'trapezoidal':
-      if (!params.sideSlope) 
-        throw new Error("Side slope required for trapezoidal channel");
-      
-      // Length of sloped sides using Pythagorean theorem
-      const sideLength = depth * Math.sqrt(1 + Math.pow(params.sideSlope, 2));
-      return params.bottomWidth + 2 * sideLength;
-      
-    case 'triangular':
-      if (!params.sideSlope) 
-        throw new Error("Side slope required for triangular channel");
-      
-      // Length of sides using Pythagorean theorem
-      const triangleSideLength = depth * Math.sqrt(1 + Math.pow(params.sideSlope, 2));
-      return 2 * triangleSideLength;
-      
-    case 'circular':
-      if (!params.diameter) 
-        throw new Error("Diameter required for circular channel");
-      
-      // If depth is 0, return 0
-      if (depth <= 0) return 0;
-      
-      // If depth is greater than diameter, return full circle perimeter
-      if (depth >= params.diameter) return Math.PI * params.diameter;
-      
-      // Calculate the angle subtended by the water surface
-      const theta = 2 * Math.acos(1 - 2 * depth / params.diameter);
-      
-      // Calculate wetted perimeter for partially filled circular channel
-      return (params.diameter / 2) * theta;
-      
-    default:
-      throw new Error(`Unsupported channel type: ${params.channelType}`);
-  }
 }
 
 /**

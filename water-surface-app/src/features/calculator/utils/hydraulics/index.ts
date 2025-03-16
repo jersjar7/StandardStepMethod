@@ -6,43 +6,61 @@
  */
 
 // Re-export all functions from the hydraulics modules
-export * from './channelGeometry';
-export * from './flowParameters';
-export * from './criticalFlow';
-export * from './normalFlow';
-export * from './hydraulicJump';
-export * from './standardStep';
-
-// Export types from standardStep for use in other components
-export type { FlowDepthPoint, WaterSurfaceProfileResults } from './standardStep';
-export type { HydraulicJumpResult } from './hydraulicJump';
-
-/**
- * Main function to calculate water surface profile
- * 
- * This is the main entry point for calculating water surface profiles.
- * It takes channel parameters and returns the water surface profile.
- * 
- * @param params Channel parameters
- * @returns Water surface profile calculation results
- */
-export { calculateWaterSurfaceProfile } from './standardStep';
-
-/**
- * Utility functions for calculating channel geometry
- * 
- * These functions calculate area, wetted perimeter, hydraulic radius, etc.
- * for different channel types.
- */
+// Channel Geometry
 export {
-  calculateArea,
-  calculateWetPerimeter,
-  calculateTopWidth,
-  calculateHydraulicRadius,
-  calculateHydraulicDepth,
-  calculateMaxDepth
-} from './channelGeometry';
-
-/**
- * Utility functions for calculating flow parameters
- *
+    calculateArea,
+    calculateWetPerimeter,
+    calculateTopWidth,
+    calculateHydraulicRadius,
+    calculateHydraulicDepth,
+    calculateMaxDepth
+  } from './channelGeometry';
+  
+  // Flow Parameters
+  export {
+    calculateVelocity,
+    calculateFroudeNumber,
+    calculateSpecificEnergy,
+    calculateFrictionSlope,
+    calculateChannelFrictionSlope,
+    calculateShearStress,
+    determineFlowRegime,
+    calculateSpecificForce
+  } from './flowParameters';
+  
+  // Critical Flow
+  export {
+    calculateCriticalDepth,
+    calculateCriticalVelocity,
+    calculateCriticalEnergy,
+    isFlowCritical
+  } from './criticalFlow';
+  
+  // Normal Flow
+  export {
+    calculateNormalDepth,
+    calculateNormalVelocity,
+    calculateNormalFroudeNumber,
+    classifyChannelSlope,
+    determineNormalFlowRegime,
+    isFlowUniform
+  } from './normalFlow';
+  
+  // Hydraulic Jump
+  export {
+    isHydraulicJumpPossible,
+    calculateSequentDepth,
+    calculateEnergyLoss,
+    calculateJumpLength,
+    calculateHydraulicJump,
+    classifyHydraulicJump
+  } from './hydraulicJump';
+  
+  // Water Surface Profile Calculation
+  export {
+    calculateWaterSurfaceProfile
+  } from './standardStep';
+  
+  // Export types for use in other components
+  export type { FlowDepthPoint, WaterSurfaceProfileResults } from './standardStep';
+  export type { HydraulicJumpResult } from './hydraulicJump';
