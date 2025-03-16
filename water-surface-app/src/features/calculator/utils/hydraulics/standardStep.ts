@@ -1,9 +1,7 @@
 import { ChannelParams } from '../../stores/calculatorSlice';
 import { 
   calculateArea, 
-  calculateWetPerimeter,
-  calculateTopWidth,
-  calculateHydraulicRadius 
+  calculateWetPerimeter 
 } from './channelGeometry';
 import { 
   calculateVelocity, 
@@ -20,7 +18,6 @@ import {
 } from './normalFlow';
 import { 
   calculateHydraulicJump, 
-  isHydraulicJumpPossible
 } from './hydraulicJump';
 
 /**
@@ -50,52 +47,14 @@ export interface WaterSurfaceProfileResults {
 }
 
 /**
- * Reusable cache for expensive calculations
- */
-const calculationCache = {
-  criticalDepth: new Map<string, number>(),
-  normalDepth: new Map<string, number>(),
-  
-  // Generate cache key from params
-  getCacheKey(params: ChannelParams, prop: string): string {
-    // Create a unique key based on relevant parameters
-    return `${params.channelType}_${params.discharge}_${params.channelSlope}_${params.manningN}_${prop}`;
-  },
-  
-  // Clear cache if needed (e.g., when params change significantly)
-  clearCache(): void {
-    this.criticalDepth.clear();
-    this.normalDepth.clear();
-  }
-};
-
-/**
  * Calculates the water surface profile using the standard step method
  * @param params Channel parameters
  * @returns Water surface profile calculation results
  */
 export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfaceProfileResults {
-  // Calculate critical and normal depths with caching
-  const criticalDepthKey = calculationCache.getCacheKey(params, 'critical');
-  const normalDepthKey = calculationCache.getCacheKey(params, 'normal');
-  
-  let criticalDepth: number;
-  let normalDepth: number;
-  
-  // Use cached values if available
-  if (calculationCache.criticalDepth.has(criticalDepthKey)) {
-    criticalDepth = calculationCache.criticalDepth.get(criticalDepthKey)!;
-  } else {
-    criticalDepth = calculateCriticalDepth(params);
-    calculationCache.criticalDepth.set(criticalDepthKey, criticalDepth);
-  }
-  
-  if (calculationCache.normalDepth.has(normalDepthKey)) {
-    normalDepth = calculationCache.normalDepth.get(normalDepthKey)!;
-  } else {
-    normalDepth = calculateNormalDepth(params);
-    calculationCache.normalDepth.set(normalDepthKey, normalDepth);
-  }
+  // Calculate critical and normal depths
+  const criticalDepth = calculateCriticalDepth(params);
+  const normalDepth = calculateNormalDepth(params);
   
   // Classify the channel slope
   const channelSlope = classifyChannelSlope(params);
@@ -130,8 +89,11 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
     }
   }
   
-  // Set step size - adaptive based on channel length
-  const baseDx = params.length / 100; // Base step size
+  // Set step size
+  const numSteps = 100; // Number of calculation points
+  const dx = params.length / numSteps; // Step size
+  
+  // Initialize flow profile array
   const flowProfile: FlowDepthPoint[] = [];
   
   // Variables to track hydraulic jump
@@ -142,10 +104,7 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
   let currentPosition = startPosition;
   let currentDepth = initialDepth;
   
-  // Pre-calculate gradual transitions
-  const channelTransitions = detectTransitions(params, criticalDepth, normalDepth);
-  
-  // Create initial point
+  // Calculate properties at the initial point
   const initialArea = calculateArea(currentDepth, params);
   const initialVelocity = calculateVelocity(params.discharge, initialArea);
   const initialFroudeNumber = calculateFroudeNumber(initialVelocity, currentDepth, params);
@@ -158,21 +117,13 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
     velocity: initialVelocity,
     froudeNumber: initialFroudeNumber,
     specificEnergy: initialEnergy,
-    criticalDepth,
-    normalDepth
+    criticalDepth: criticalDepth,
+    normalDepth: normalDepth
   });
   
-  // Adaptive step size variables
-  let dx = baseDx;
-  let prevFroudeNumber = initialFroudeNumber;
-  let lastJumpCheck = 0;
-  
-  // Keep track of rapid changes for adaptive step size
-  let depthGradient = 0;
-  
   // Calculate water surface profile step by step
-  while (true) {
-    // Update position based on direction and step size
+  for (let i = 0; i < numSteps; i++) {
+    // Update position based on direction
     const nextPosition = direction === 'upstream' 
                        ? currentPosition - dx 
                        : currentPosition + dx;
@@ -182,103 +133,57 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
       break;
     }
     
-    // Check if we're approaching a transition area
-    const nearTransition = channelTransitions.some(t => 
-      Math.abs(nextPosition - t.position) < 5 * baseDx);
-    
-    // Adjust step size if near transition area or if depth is changing rapidly
-    if (nearTransition || Math.abs(depthGradient) > 0.05) {
-      dx = baseDx / 4; // Reduce step size for higher accuracy
-    } else {
-      dx = baseDx; // Use normal step size
-    }
-    
     // Calculate the next depth using the standard step method
-    try {
-      const nextDepth = calculateNextDepth(
-        currentPosition, 
-        currentDepth, 
-        nextPosition,
-        direction,
-        params
-      );
-      
-      // Check if next depth is valid
-      if (nextDepth <= 0) {
-        isChoking = true;
-        break;
-      }
-      
-      // Calculate properties at the new point
-      const nextArea = calculateArea(nextDepth, params);
-      const nextVelocity = calculateVelocity(params.discharge, nextArea);
-      const nextFroudeNumber = calculateFroudeNumber(nextVelocity, nextDepth, params);
-      const nextEnergy = calculateSpecificEnergy(nextDepth, nextVelocity, params);
-      
-      // Update depth gradient for adaptive step size
-      depthGradient = (nextDepth - currentDepth) / dx;
-      
-      // Check for hydraulic jump - more robust detection
-      // 1. Check for transition from supercritical to subcritical
-      // 2. Check every few steps to avoid missing jumps between calculation points
-      const distanceSinceLastCheck = Math.abs(currentPosition - lastJumpCheck);
-      
-      if (distanceSinceLastCheck > 5 * baseDx) {
-        // Periodically check for possible hydraulic jump conditions
-        lastJumpCheck = currentPosition;
-        
-        if (prevFroudeNumber > 1 && nextFroudeNumber < 1) {
-          // Clear hydraulic jump condition - check if jump is possible
-          if (isHydraulicJumpPossible(currentDepth, params)) {
-            const jumpLocation = (currentPosition + nextPosition) / 2;
-            hydraulicJump = calculateHydraulicJump(currentDepth, jumpLocation, params);
-            
-            // After hydraulic jump, continue with sequent depth
-            if (hydraulicJump) {
-              currentDepth = hydraulicJump.depth2;
-              
-              // Add jump point to the profile
-              flowProfile.push({
-                x: jumpLocation,
-                y: hydraulicJump.depth2,
-                velocity: params.discharge / calculateArea(hydraulicJump.depth2, params),
-                froudeNumber: nextFroudeNumber,
-                specificEnergy: nextEnergy - hydraulicJump.energyLoss,
-                criticalDepth,
-                normalDepth
-              });
-              
-              // Skip to next iteration
-              currentPosition = nextPosition;
-              prevFroudeNumber = nextFroudeNumber;
-              continue;
-            }
-          }
-        }
-      }
-      
-      // No jump, update current depth for next iteration
-      currentDepth = nextDepth;
-      currentPosition = nextPosition;
-      prevFroudeNumber = nextFroudeNumber;
-      
-      // Add point to the profile
-      flowProfile.push({
-        x: currentPosition,
-        y: currentDepth,
-        velocity: nextVelocity,
-        froudeNumber: nextFroudeNumber,
-        specificEnergy: nextEnergy,
-        criticalDepth,
-        normalDepth
-      });
-      
-    } catch (error) {
-      // Handle calculation errors
-      console.error(`Error at station ${nextPosition}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    const nextDepth = calculateNextDepth(
+      currentPosition, 
+      currentDepth, 
+      nextPosition,
+      direction,
+      params
+    );
+    
+    // Check if next depth is valid
+    if (nextDepth <= 0) {
+      // Invalid depth - might be due to choking or other issues
       isChoking = true;
       break;
     }
+    
+    // Calculate properties at the new point
+    const nextArea = calculateArea(nextDepth, params);
+    const nextVelocity = calculateVelocity(params.discharge, nextArea);
+    const nextFroudeNumber = calculateFroudeNumber(nextVelocity, nextDepth, params);
+    const nextEnergy = calculateSpecificEnergy(nextDepth, nextVelocity, params);
+    
+    // Check for hydraulic jump
+    // Jump occurs when flow transitions from supercritical to subcritical
+    if (initialFroudeNumber > 1 && nextFroudeNumber < 1) {
+      // Calculate hydraulic jump details
+      const jumpLocation = (currentPosition + nextPosition) / 2;
+      hydraulicJump = calculateHydraulicJump(currentDepth, jumpLocation, params);
+      
+      // After hydraulic jump, continue with sequent depth
+      if (hydraulicJump) {
+        currentDepth = hydraulicJump.depth2;
+      }
+    } else {
+      // No jump, update current depth for next iteration
+      currentDepth = nextDepth;
+    }
+    
+    // Update current position
+    currentPosition = nextPosition;
+    
+    // Add point to the profile
+    flowProfile.push({
+      x: currentPosition,
+      y: currentDepth,
+      velocity: nextVelocity,
+      froudeNumber: nextFroudeNumber,
+      specificEnergy: nextEnergy,
+      criticalDepth: criticalDepth,
+      normalDepth: normalDepth
+    });
   }
   
   // Determine the profile type
@@ -304,57 +209,7 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
 }
 
 /**
- * Detect transitions in the channel for adaptive step sizing
- * @param params Channel parameters
- * @param criticalDepth Critical depth
- * @param normalDepth Normal depth
- * @returns Array of transition locations
- */
-function detectTransitions(
-  params: ChannelParams, 
-  criticalDepth: number, 
-  normalDepth: number
-): Array<{position: number, type: string}> {
-  const transitions: Array<{position: number, type: string}> = [];
-  
-  // For mild slope, transition near critical depth control
-  if (normalDepth > criticalDepth) {
-    transitions.push({
-      position: params.length,
-      type: 'critical control'
-    });
-  }
-  
-  // For steep slope, transition near jump location
-  if (normalDepth < criticalDepth) {
-    // Estimate jump location - typically about 20-30% along channel
-    const estimatedJumpLoc = params.length * 0.25;
-    transitions.push({
-      position: estimatedJumpLoc,
-      type: 'potential jump'
-    });
-  }
-  
-  // Add control points
-  if (params.upstreamDepth !== undefined) {
-    transitions.push({
-      position: 0,
-      type: 'upstream control'
-    });
-  }
-  
-  if (params.downstreamDepth !== undefined) {
-    transitions.push({
-      position: params.length,
-      type: 'downstream control'
-    });
-  }
-  
-  return transitions;
-}
-
-/**
- * Calculates the next depth in the water surface profile using improved Newton-Raphson method
+ * Calculates the next depth in the water surface profile
  * @param currentX Current station
  * @param currentY Current depth
  * @param nextX Next station
@@ -369,10 +224,9 @@ function calculateNextDepth(
   direction: 'upstream' | 'downstream',
   params: ChannelParams
 ): number {
+  
   // Calculate properties at current point
   const currentArea = calculateArea(currentY, params);
-  const currentWetPerimeter = calculateWetPerimeter(currentY, params);
-  const currentHydraulicRadius = currentArea / currentWetPerimeter;
   const currentVelocity = calculateVelocity(params.discharge, currentArea);
   const currentEnergy = calculateSpecificEnergy(currentY, currentVelocity, params);
   
@@ -383,55 +237,39 @@ function calculateNextDepth(
   // Calculate friction slope at current point
   const currentFrictionSlope = calculateFrictionSlope(
     currentVelocity,
-    currentHydraulicRadius,
+    currentArea / calculateWetPerimeter(currentY, params),
     params.manningN,
     params.units
   );
   
-  // Initial estimate for next depth - better initial guess
-  let nextY: number;
+  // Initial estimate for next depth
+  let nextY = currentY;
   
-  if (direction === 'upstream') {
-    if (currentY > calculateNormalDepth(params)) {
-      // Backwater curve - depth increases moving upstream
-      nextY = currentY * 1.05;
-    } else {
-      // Drawdown curve - depth decreases moving upstream
-      nextY = currentY * 0.95;
-    }
-  } else { // downstream
-    if (currentY > calculateNormalDepth(params)) {
-      // Drawdown curve - depth decreases moving downstream
-      nextY = currentY * 0.95;
-    } else {
-      // Backwater curve - depth increases moving downstream
-      nextY = currentY * 1.05;
-    }
+  // For mild slope flowing downstream or steep slope flowing upstream,
+  // depth typically decreases
+  if ((params.channelSlope < 0.001 && direction === 'downstream') ||
+      (params.channelSlope > 0.01 && direction === 'upstream')) {
+    nextY = currentY * 0.95;
+  } else {
+    // Otherwise, depth typically increases
+    nextY = currentY * 1.05;
   }
   
-  // Constrain initial guess to reasonable bounds
-  nextY = Math.max(0.1 * currentY, Math.min(10 * currentY, nextY));
-  
-  // Improved convergence parameters
+  // Iterate to find the next depth
   const tolerance = 0.0001;
   const maxIterations = 50;
   let iterations = 0;
-  let prevError = Infinity;
   
-  // Newton-Raphson method for faster convergence
   while (iterations < maxIterations) {
     // Calculate properties at estimated next point
     const nextArea = calculateArea(nextY, params);
-    const nextTopWidth = calculateTopWidth(nextY, params);
-    const nextWetPerimeter = calculateWetPerimeter(nextY, params);
-    const nextHydraulicRadius = nextArea / nextWetPerimeter;
     const nextVelocity = calculateVelocity(params.discharge, nextArea);
     const nextEnergy = calculateSpecificEnergy(nextY, nextVelocity, params);
     
     // Calculate friction slope at next point
     const nextFrictionSlope = calculateFrictionSlope(
       nextVelocity,
-      nextHydraulicRadius,
+      nextArea / calculateWetPerimeter(nextY, params),
       params.manningN,
       params.units
     );
@@ -453,123 +291,53 @@ function calculateNextDepth(
       break;
     }
     
-    // If error is growing or oscillating, switch to bisection method
-    if (Math.abs(error) > Math.abs(prevError) && iterations > 5) {
-      // Use bisection method for more robustness
-      return findDepthByBisection(
-        currentX, currentY, nextX, direction, params, 
-        currentEnergy, dz, currentFrictionSlope
-      );
-    }
-    
-    // Calculate derivative of energy with respect to depth
-    // dE/dy = 1 - Q²/(g*A³) * dA/dy
-    // Approximate dA/dy ≈ topWidth
-    const g = params.units === 'imperial' ? 32.2 : 9.81;
-    const dEdy = 1 - Math.pow(params.discharge, 2) / (g * Math.pow(nextArea, 3)) * nextTopWidth;
-    
-    // Newton-Raphson update
-    // Avoid division by zero
-    if (Math.abs(dEdy) > 0.0001) {
-      const delta = error / dEdy;
-      // Dampen the correction to avoid overshooting
-      const dampingFactor = Math.min(1.0, 0.7 + 0.3 * (maxIterations - iterations) / maxIterations);
-      nextY -= delta * dampingFactor;
+    // Adjust depth based on error
+    if (error > 0) {
+      // If energy is too high, increase depth
+      nextY += 0.01;
     } else {
-      // If derivative is near zero, make small adjustment
-      if (error > 0) {
-        nextY += 0.01 * nextY;
-      } else {
-        nextY -= 0.01 * nextY;
-      }
+      // If energy is too low, decrease depth
+      nextY -= 0.01;
     }
     
-    // Ensure depth remains positive and reasonable
-    nextY = Math.max(0.001, nextY);
+    // Ensure depth remains positive
+    if (nextY <= 0) {
+      nextY = 0.01;
+    }
     
-    // Save current error for next iteration
-    prevError = error;
     iterations++;
-  }
-  
-  // If Newton-Raphson didn't converge, try bisection method
-  if (iterations >= maxIterations) {
-    return findDepthByBisection(
-      currentX, currentY, nextX, direction, params, 
-      currentEnergy, dz, currentFrictionSlope
-    );
   }
   
   return nextY;
 }
 
 /**
- * Fallback method using bisection for more robust convergence
+ * Determines the water surface profile type based on channel slope and depths
+ * @param channelSlope Channel slope classification ('mild', 'critical', or 'steep')
+ * @param depth Current flow depth
+ * @param normalDepth Normal depth
+ * @param criticalDepth Critical depth
+ * @returns Profile type classification (M1, M2, S1, etc.)
  */
-function findDepthByBisection(
-  currentX: number, 
-  currentY: number, 
-  nextX: number,
-  direction: 'upstream' | 'downstream',
-  params: ChannelParams,
-  currentEnergy: number,
-  dz: number,
-  currentFrictionSlope: number
-): number {
-  const dx = Math.abs(nextX - currentX);
-  
-  // Set reasonable search bounds
-  const yMin = 0.1 * currentY;
-  const yMax = 10 * currentY;
-  
-  let yLow = yMin;
-  let yHigh = yMax;
-  
-  const tolerance = 0.0001;
-  const maxIterations = 50;
-  let iterations = 0;
-  
-  // Function to evaluate energy balance
-  const evaluateEnergyBalance = (y: number): number => {
-    const area = calculateArea(y, params);
-    const wetPerimeter = calculateWetPerimeter(y, params);
-    const hydraulicRadius = area / wetPerimeter;
-    const velocity = calculateVelocity(params.discharge, area);
-    const energy = calculateSpecificEnergy(y, velocity, params);
-    
-    const frictionSlope = calculateFrictionSlope(
-      velocity,
-      hydraulicRadius,
-      params.manningN,
-      params.units
-    );
-    
-    const avgFrictionSlope = (currentFrictionSlope + frictionSlope) / 2;
-    const headLoss = avgFrictionSlope * dx;
-    
-    const expectedEnergy = currentEnergy + dz - headLoss;
-    
-    return energy - expectedEnergy;
-  };
-  
-  // Bisection method
-  while ((yHigh - yLow) > tolerance && iterations < maxIterations) {
-    const yMid = (yLow + yHigh) / 2;
-    const fMid = evaluateEnergyBalance(yMid);
-    
-    if (Math.abs(fMid) < tolerance) {
-      return yMid;
-    }
-    
-    const fLow = evaluateEnergyBalance(yLow);
-    
-    if (fLow * fMid < 0) {
-      yHigh = yMid;
-    } else {
-      yLow = yMid;
-    }
-    
-    iterations++;
+function determineProfileType(
+  channelSlope: string, 
+  depth: number, 
+  normalDepth: number, 
+  criticalDepth: number
+): string {
+  if (channelSlope === 'mild') {
+    if (depth > normalDepth) return 'M1';
+    if (depth < normalDepth && depth > criticalDepth) return 'M2';
+    if (depth < criticalDepth) return 'M3';
+  } else if (channelSlope === 'steep') {
+    if (depth > criticalDepth) return 'S1';
+    if (depth < criticalDepth && depth > normalDepth) return 'S2';
+    if (depth < normalDepth) return 'S3';
+  } else if (channelSlope === 'critical') {
+    if (depth > criticalDepth) return 'C1';
+    if (depth < criticalDepth) return 'C3';
+    return 'C0';
   }
   
-  return (yLow + yHigh) / 2
+  return 'Unknown';
+}
