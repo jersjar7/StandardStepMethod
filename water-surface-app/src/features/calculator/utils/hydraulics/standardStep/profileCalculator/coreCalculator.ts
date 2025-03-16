@@ -10,6 +10,7 @@ import {
   StepCalculationParams
 } from '../types';
 import { setupInitialConditions } from './initialConditions';
+import { convertToStandardHydraulicJump } from '../../../../types/hydraulicJumpTypes';
 
 /**
  * Calculates the initial profile point
@@ -179,7 +180,7 @@ export function calculateWaterSurfaceProfile(
   );
   
   // Detect hydraulic jump
-  const hydraulicJump = detectHydraulicJump(flowProfile, params);
+  const jumpResult = detectHydraulicJump(flowProfile, params);
   
   // Sort the profile by station for consistent display
   flowProfile.sort((a, b) => a.x - b.x);
@@ -191,7 +192,7 @@ export function calculateWaterSurfaceProfile(
     criticalDepth,
     normalDepth,
     isChoking,
-    hydraulicJump
+    hydraulicJump: convertToStandardHydraulicJump(jumpResult)
   };
 }
 
@@ -203,7 +204,7 @@ export function calculateWaterSurfaceProfile(
  */
 export function calculateHighResolutionProfile(
   params: ChannelParams,
-  _resolution: number = 200
+  resolution: number = 200
 ): WaterSurfaceProfileResults {
   // Save original channel length
   const originalLength = params.length;

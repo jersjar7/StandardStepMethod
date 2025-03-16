@@ -46,6 +46,9 @@ water-surface-app/
 │   │   │   │   │   └── resultTypes.ts          # Result and hydraulic jump types
 │   │   │   │   ├── calculatorActions.ts        # Action creators
 │   │   │   │   └── calculatorSlice.ts          # Redux slice for calculator
+│   │   │   ├── types/                          # Type definitions for calculator
+│   │   │   │   ├── hydraulicJumpTypes.ts       # Hydraulic jump specific types
+│   │   │   │   └── index.ts                    # General calculator types
 │   │   │   ├── utils/                          # Calculation utilities
 │   │   │   │   ├── hydraulics/                 # Hydraulic calculations
 │   │   │   │   │   ├── channelGeometry.ts      # Area, wetted perimeter, top width
@@ -56,13 +59,18 @@ water-surface-app/
 │   │   │   │   │   ├── standardStep/           # Modularized standard step method
 │   │   │   │   │   │   ├── index.ts            # Main exports and entry point
 │   │   │   │   │   │   ├── types.ts            # Type definitions
-│   │   │   │   │   │   ├── profileCalculator.ts # Main profile calculation logic
-│   │   │   │   │   │   ├── stepCalculator.ts   # Single step calculation logic
 │   │   │   │   │   │   ├── jumpDetector.ts     # Hydraulic jump detection utilities
 │   │   │   │   │   │   ├── transitionDetector.ts # Profile transitions detection
 │   │   │   │   │   │   ├── profileUtils.ts     # Profile classification utilities
 │   │   │   │   │   │   ├── calculationCache.ts # Caching for expensive calculations
-│   │   │   │   │   │   └── calculationOptimizer.ts # Performance optimization
+│   │   │   │   │   │   ├── calculationOptimizer.ts # Performance optimization
+│   │   │   │   │   │   ├── stepCalculator.ts   # Single step calculation logic
+│   │   │   │   │   │   └── profileCalculator/  # Profile calculation modules
+│   │   │   │   │   │       ├── index.ts        # Main profile calculator exports
+│   │   │   │   │   │       ├── coreCalculator.ts # Core calculation logic
+│   │   │   │   │   │       ├── initialConditions.ts # Setup for calculations
+│   │   │   │   │   │       ├── advancedCalculations.ts # Advanced options
+│   │   │   │   │   │       └── profileInterpolation.ts # Profile smoothing
 │   │   │   │   │   └── index.ts                # Re-exports for compatibility
 │   │   │   │   └── helpers.ts                  # Helper functions
 │   │   │   ├── validators/                     # Input validation
@@ -94,6 +102,7 @@ water-surface-app/
 │   │   │   ├── exportToJson.ts                 # JSON export
 │   │   │   ├── reportGenerator.ts              # Report generation
 │   │   │   └── index.ts                        # Service exports
+│   │   ├── exportService.ts                    # Main export service
 │   │   └── webWorkers/                         # Web workers
 │   │       └── standardStepWorker.ts           # Worker for calculations
 │   ├── stores/                                 # Redux store configuration
@@ -106,20 +115,15 @@ water-surface-app/
 │   │   │   └── hydraulics/                     # Tests for hydraulic calculations
 │   │   │       ├── channelGeometry.test.ts     # Channel geometry tests
 │   │   │       ├── flowParameters.test.ts      # Flow parameters tests
-│   │   │       ├── standardStep/               # Standard step tests
-│   │   │       │   ├── profileCalculator.test.ts # Test main profile calculation
-│   │   │       │   ├── stepCalculator.test.ts  # Test step calculation
-│   │   │       │   └── jumpDetector.test.ts    # Test jump detection
-│   │   │       └── hydraulicJump.test.ts       # Hydraulic jump tests
+│   │   │       └── standardStep.test.ts        # Standard step tests
 │   │   └── components/
 │   │       └── calculator/                     # Calculator component tests
-│   ├── types/                                  # Global type definitions
-│   │   └── index.ts                            # Common types
 │   ├── utils/                                  # Utility functions
 │   │   ├── formatters.ts                       # Value formatting helpers
 │   │   └── validation.ts                       # Generic validation helpers
 │   ├── App.tsx                                 # Main app component
 │   ├── App.css                                 # App styles
+│   ├── index.css                               # Global CSS
 │   ├── main.tsx                                # Entry point
 │   └── vite-env.d.ts                           # Vite type definitions
 ├── .eslintrc.js                                # ESLint config

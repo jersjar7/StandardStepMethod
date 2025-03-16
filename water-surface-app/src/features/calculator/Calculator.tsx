@@ -20,14 +20,9 @@ import WaterSurfaceVisualization from './components/WaterSurfaceVisualization';
 import CalculatorTabs, { TabType } from './components/CalculatorTabs';
 import ExportMenu from './components/ExportMenu';
 
-// Import hydraulics utilities
-import {
-  calculateWaterSurfaceProfile,
-  calculateArea,
-  calculateTopWidth,
-  calculateWetPerimeter,
-  calculateHydraulicRadius
-} from './utils/hydraulics';
+// Import hydraulics utilities and hooks
+import { useCalculation } from './hooks/useCalculation';
+import { useResults } from './hooks/useResults';
 
 const Calculator: React.FC = () => {
   const dispatch = useDispatch();
@@ -39,78 +34,59 @@ const Calculator: React.FC = () => {
     hydraulicJump
   } = useSelector((state: RootState) => state.calculator);
   
-  const [selectedResultIndex, setSelectedResultIndex] = useState<number>(0);
-  const [selectedResult, setSelectedResult] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('input');
   
-  // Update selected result when results change
+  // Use custom hooks for calculations and results handling
+  const { runCalculation, resetCalculation, getChannelClassification } = useCalculation();
+  const { 
+    selectedResult, 
+    selectResultByStation, 
+    getProfileType,
+    getFilteredResults
+  } = useResults();
+  
+  // Handle tab changes based on results
   useEffect(() => {
-    if (results && results.length > 0) {
-      if (selectedResultIndex >= results.length) {
-        setSelectedResultIndex(0);
-      }
-      setSelectedResult(results[selectedResultIndex]);
-    } else {
-      setSelectedResult(null);
+    // If results are available and we're on the input tab, switch to results
+    if (results.length > 0 && activeTab === 'input' && !isCalculating) {
+      setActiveTab('results');
     }
-  }, [results, selectedResultIndex]);
+    
+    // If no results are available and we're not on input tab, switch to input
+    if (results.length === 0 && activeTab !== 'input' && !isCalculating) {
+      setActiveTab('input');
+    }
+  }, [results, isCalculating, activeTab]);
   
   // Handle calculation
   const handleCalculate = async () => {
-    dispatch(startCalculation());
-    
-    try {
-      // Calculate water surface profile using the hydraulics utility
-      const output = calculateWaterSurfaceProfile(channelParams);
-      
-      // Format results for the Redux store
-      const formattedResults = output.flowProfile.map(point => ({
-        station: point.x,
-        depth: point.y,
-        velocity: point.velocity,
-        area: calculateArea(point.y, channelParams),
-        topWidth: calculateTopWidth(point.y, channelParams),
-        wetPerimeter: calculateWetPerimeter(point.y, channelParams),
-        hydraulicRadius: calculateHydraulicRadius(point.y, channelParams),
-        energy: point.specificEnergy,
-        froudeNumber: point.froudeNumber,
-        criticalDepth: point.criticalDepth,
-        normalDepth: point.normalDepth
-      }));
-      
-      // Format hydraulic jump data
-      const jumpData: HydraulicJump = output.hydraulicJump ? {
-        occurs: true,
-        station: output.hydraulicJump.position,
-        upstreamDepth: output.hydraulicJump.depth1,
-        downstreamDepth: output.hydraulicJump.depth2
-      } : { occurs: false };
-      
-      // Dispatch successful calculation
-      dispatch(calculationSuccess({ 
-        results: formattedResults, 
-        hydraulicJump: jumpData 
-      }));
-      
-      // Switch to results tab
-      setActiveTab('results');
-    } catch (err) {
-      // Handle calculation errors
-      dispatch(calculationFailure(err instanceof Error ? err.message : 'An unknown error occurred'));
-    }
+    await runCalculation(channelParams);
   };
   
   // Handle reset
   const handleReset = () => {
-    dispatch(resetCalculator());
+    resetCalculation();
     setActiveTab('input');
   };
   
-  // Handle selecting a specific result for cross-section view
-  const handleResultSelect = (index: number) => {
-    if (results && index >= 0 && index < results.length) {
-      setSelectedResultIndex(index);
-    }
+  // Determine profile type for visualization
+  const profileType = getProfileType();
+  // Determine channel slope classification
+  const channelSlope = getChannelClassification();
+  
+  // Handle channel type change
+  const handleChannelTypeChange = (type: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular') => {
+    dispatch(setChannelType(type));
+  };
+  
+  // Handle channel parameter changes
+  const handleChannelParamsChange = (params: Partial<typeof channelParams>) => {
+    dispatch(updateChannelParams(params));
+  };
+  
+  // Handle station selection for cross-section view
+  const handleStationSelect = (station: number) => {
+    selectResultByStation(station);
   };
   
   return (
@@ -146,8 +122,8 @@ const Calculator: React.FC = () => {
           <ChannelForm 
             channelParams={channelParams}
             isCalculating={isCalculating}
-            onChannelTypeChange={(type) => dispatch(setChannelType(type))}
-            onParamsChange={(params) => dispatch(updateChannelParams(params))}
+            onChannelTypeChange={handleChannelTypeChange}
+            onParamsChange={handleChannelParamsChange}
             onCalculate={handleCalculate}
             onReset={handleReset}
           />
@@ -160,7 +136,11 @@ const Calculator: React.FC = () => {
               <ExportMenu results={results} channelParams={channelParams} />
             </div>
             
-            <ResultsTable results={results} />
+            <ResultsTable 
+              results={results} 
+              hydraulicJump={hydraulicJump}
+              onSelectResult={handleStationSelect}
+            />
             
             {hydraulicJump?.occurs && (
               <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
@@ -175,7 +155,11 @@ const Calculator: React.FC = () => {
         )}
         
         {activeTab === 'profile' && results.length > 0 && (
-          <ProfileVisualization results={results} />
+          <ProfileVisualization 
+            results={getFilteredResults(100)}
+            profileType={profileType}
+            channelSlope={channelSlope}
+          />
         )}
         
         {activeTab === 'cross-section' && results.length > 0 && selectedResult && (
@@ -186,11 +170,12 @@ const Calculator: React.FC = () => {
               </label>
               <input
                 type="range"
-                min={0}
-                max={results.length - 1}
-                value={selectedResultIndex}
-                onChange={(e) => handleResultSelect(parseInt(e.target.value))}
+                min={results[0].station}
+                max={results[results.length - 1].station}
+                value={selectedResult.station}
+                onChange={(e) => handleStationSelect(parseFloat(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                step={(results[results.length - 1].station - results[0].station) / 100}
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>{results[0].station.toFixed(0)} m</span>
@@ -207,7 +192,7 @@ const Calculator: React.FC = () => {
         )}
         
         {activeTab === 'water-surface' && results.length > 0 && (
-          <WaterSurfaceVisualization results={results} />
+          <WaterSurfaceVisualization results={getFilteredResults(200)} />
         )}
       </div>
     </div>
