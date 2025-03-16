@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
-import { CalculationResult, HydraulicJump } from '../types';
+import { CalculationResult, HydraulicJump, UnitSystem } from '../types';
 import { getFlowRegimeDescription } from '../stores/types/resultTypes';
+import { formatWithUnit, getParameterLabels } from '../../../utils/formatters';
 
 interface ResultsTableProps {
   results: CalculationResult[];
   hydraulicJump?: HydraulicJump;
+  unitSystem?: UnitSystem;
   onSelectResult?: (index: number) => void;
 }
 
 const ResultsTable: React.FC<ResultsTableProps> = ({ 
   results, 
   hydraulicJump,
+  unitSystem = 'metric',
   onSelectResult 
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const resultsPerPage = 10;
+  
+  // Get parameter labels with proper units
+  const labels = getParameterLabels(unitSystem);
   
   // Calculate the total number of pages
   const totalPages = Math.ceil(results.length / resultsPerPage);
@@ -67,28 +73,28 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
           <thead className="bg-gray-50">
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Station (m)
+                {labels.station}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Depth (m)
+                {labels.depth}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Velocity (m/s)
+                {labels.velocity}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Area (m²)
+                {labels.area}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Top Width (m)
+                {labels.topWidth}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Hydraulic Radius (m)
+                {labels.hydraulicRadius}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Energy (m)
+                {labels.energy}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Froude Number
+                {labels.froudeNumber}
               </th>
             </tr>
           </thead>
@@ -108,28 +114,28 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                   onClick={() => handleRowClick(index)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {result.station.toFixed(2)}
+                    {formatWithUnit(result.station, 'station', unitSystem, 2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {result.depth.toFixed(3)}
+                    {formatWithUnit(result.depth, 'depth', unitSystem, 3)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {result.velocity.toFixed(3)}
+                    {formatWithUnit(result.velocity, 'velocity', unitSystem, 3)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {result.area.toFixed(3)}
+                    {formatWithUnit(result.area, 'area', unitSystem, 3)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {result.topWidth.toFixed(3)}
+                    {formatWithUnit(result.topWidth, 'topWidth', unitSystem, 3)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {result.hydraulicRadius.toFixed(3)}
+                    {formatWithUnit(result.hydraulicRadius, 'hydraulicRadius', unitSystem, 3)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {result.energy.toFixed(3)}
+                    {formatWithUnit(result.energy, 'energy', unitSystem, 3)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {result.froudeNumber.toFixed(3)}
+                    {formatWithUnit(result.froudeNumber, 'froudeNumber', unitSystem, 3)}
                     <span className="ml-2 text-xs text-gray-500">
                       {getFlowRegimeDescription(result.froudeNumber)}
                     </span>
@@ -178,10 +184,12 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
           {results.length > 0 && (
             <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
               <span className="text-sm font-medium text-gray-500">
-                {results[0].normalDepth && `Normal Depth: ${results[0].normalDepth.toFixed(3)} m`}
+                {results[0].normalDepth && 
+                  `Normal Depth: ${formatWithUnit(results[0].normalDepth, 'normalDepth', unitSystem, 3)}`}
               </span>
               <span className="text-sm font-medium text-gray-500">
-                {results[0].criticalDepth && `Critical Depth: ${results[0].criticalDepth.toFixed(3)} m`}
+                {results[0].criticalDepth && 
+                  `Critical Depth: ${formatWithUnit(results[0].criticalDepth, 'criticalDepth', unitSystem, 3)}`}
               </span>
             </div>
           )}
@@ -193,8 +201,8 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
         <div className="px-6 py-4 bg-yellow-50 border-t border-yellow-200">
           <h4 className="text-sm font-medium text-yellow-800">Hydraulic Jump Detected</h4>
           <p className="mt-1 text-sm text-yellow-700">
-            A hydraulic jump occurs at station {hydraulicJump.station?.toFixed(2)} m.
-            The water depth changes from {hydraulicJump.upstreamDepth?.toFixed(3)} m to {hydraulicJump.downstreamDepth?.toFixed(3)} m.
+            A hydraulic jump occurs at station {formatWithUnit(hydraulicJump.station || 0, 'station', unitSystem, 2)}.
+            The water depth changes from {formatWithUnit(hydraulicJump.upstreamDepth || 0, 'depth', unitSystem, 3)} to {formatWithUnit(hydraulicJump.downstreamDepth || 0, 'depth', unitSystem, 3)}.
           </p>
         </div>
       )}

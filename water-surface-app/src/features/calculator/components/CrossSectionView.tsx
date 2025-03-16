@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { CalculationResult, ChannelType } from '../types';
+import { CalculationResult, ChannelType, UnitSystem } from '../types';
 import { getFlowRegimeDescription } from '../stores/types/resultTypes';
+import { formatWithUnit } from '../../../utils/formatters';
 
 interface CrossSectionViewProps {
   selectedResult: CalculationResult;
   channelType: ChannelType;
+  unitSystem?: UnitSystem;
 }
 
 interface LabelPosition {
@@ -15,7 +17,8 @@ interface LabelPosition {
 
 const CrossSectionView: React.FC<CrossSectionViewProps> = ({ 
   selectedResult, 
-  channelType 
+  channelType,
+  unitSystem = 'metric'
 }) => {
   const [svgPath, setSvgPath] = useState<string>("");
   const [waterPath, setWaterPath] = useState<string>("");
@@ -27,7 +30,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     if (selectedResult) {
       generateCrossSection();
     }
-  }, [selectedResult, channelType]);
+  }, [selectedResult, channelType, unitSystem]);
   
   const generateCrossSection = () => {
     // Clear existing data
@@ -80,11 +83,23 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
           Z
         `;
         
-        // Add labels
+        // Add labels with proper units
         newLabels = [
-          { x: centerX, y: bottomY + 20, text: `Bottom Width: ${topWidth.toFixed(2)} m` },
-          { x: centerX - halfWidth - 20, y: bottomY - depth * scale / 2, text: `Depth: ${depth.toFixed(2)} m` },
-          { x: centerX, y: bottomY - depth * scale - 20, text: `Water Surface` }
+          { 
+            x: centerX, 
+            y: bottomY + 20, 
+            text: `Bottom Width: ${formatWithUnit(topWidth, 'bottomWidth', unitSystem, 2)}`
+          },
+          { 
+            x: centerX - halfWidth - 20, 
+            y: bottomY - depth * scale / 2, 
+            text: `Depth: ${formatWithUnit(depth, 'depth', unitSystem, 2)}` 
+          },
+          { 
+            x: centerX, 
+            y: bottomY - depth * scale - 20, 
+            text: 'Water Surface' 
+          }
         ];
         break;
         
@@ -115,12 +130,28 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
           Z
         `;
         
-        // Add labels
+        // Add labels with proper units
         newLabels = [
-          { x: centerX, y: bottomY + 20, text: `Bottom Width: ${bottomWidth.toFixed(2)} m` },
-          { x: centerX, y: bottomY - depth * scale - 20, text: `Top Width: ${topWidth.toFixed(2)} m` },
-          { x: centerX - halfTopWidth - 30, y: bottomY - depth * scale / 2, text: `Depth: ${depth.toFixed(2)} m` },
-          { x: centerX + halfTopWidth + 30, y: bottomY - depth * scale / 2, text: `Side Slope: ${sideSlope}:1` }
+          { 
+            x: centerX, 
+            y: bottomY + 20, 
+            text: `Bottom Width: ${formatWithUnit(bottomWidth, 'bottomWidth', unitSystem, 2)}`
+          },
+          { 
+            x: centerX, 
+            y: bottomY - depth * scale - 20, 
+            text: `Top Width: ${formatWithUnit(topWidth, 'topWidth', unitSystem, 2)}`
+          },
+          { 
+            x: centerX - halfTopWidth - 30, 
+            y: bottomY - depth * scale / 2, 
+            text: `Depth: ${formatWithUnit(depth, 'depth', unitSystem, 2)}`
+          },
+          { 
+            x: centerX + halfTopWidth + 30, 
+            y: bottomY - depth * scale / 2, 
+            text: `Side Slope: ${sideSlope}:1`
+          }
         ];
         break;
         
@@ -144,10 +175,18 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
           Z
         `;
         
-        // Add labels
+        // Add labels with proper units
         newLabels = [
-          { x: centerX, y: bottomY - depth * scale - 20, text: `Top Width: ${topWidth.toFixed(2)} m` },
-          { x: centerX - halfTriTopWidth - 30, y: bottomY - depth * scale / 2, text: `Depth: ${depth.toFixed(2)} m` }
+          { 
+            x: centerX, 
+            y: bottomY - depth * scale - 20, 
+            text: `Top Width: ${formatWithUnit(topWidth, 'topWidth', unitSystem, 2)}`
+          },
+          { 
+            x: centerX - halfTriTopWidth - 30, 
+            y: bottomY - depth * scale / 2, 
+            text: `Depth: ${formatWithUnit(depth, 'depth', unitSystem, 2)}`
+          }
         ];
         break;
         
@@ -176,11 +215,23 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
           Z
         `;
         
-        // Add labels
+        // Add labels with proper units
         newLabels = [
-          { x: centerX, y: bottomY - 2 * radius - 20, text: `Diameter: ${diameter.toFixed(2)} m` },
-          { x: centerX - radius - 30, y: bottomY - radius, text: `Depth: ${depth.toFixed(2)} m` },
-          { x: centerX, y: bottomY - depth * scale - 20, text: `Water Surface Width: ${waterSurfaceWidth.toFixed(2)} m` }
+          { 
+            x: centerX, 
+            y: bottomY - 2 * radius - 20, 
+            text: `Diameter: ${formatWithUnit(diameter, 'diameter', unitSystem, 2)}`
+          },
+          { 
+            x: centerX - radius - 30, 
+            y: bottomY - radius, 
+            text: `Depth: ${formatWithUnit(depth, 'depth', unitSystem, 2)}`
+          },
+          { 
+            x: centerX, 
+            y: bottomY - depth * scale - 20, 
+            text: `Water Surface Width: ${formatWithUnit(waterSurfaceWidth, 'topWidth', unitSystem, 2)}`
+          }
         ];
         break;
     }
@@ -209,10 +260,10 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
       
       <div className="mb-4">
         <p className="text-sm text-gray-600">
-          Station: {selectedResult.station.toFixed(2)} m | 
-          Depth: {selectedResult.depth.toFixed(3)} m | 
-          Area: {selectedResult.area.toFixed(2)} m² | 
-          Top Width: {selectedResult.topWidth.toFixed(2)} m
+          Station: {formatWithUnit(selectedResult.station, 'station', unitSystem, 2)} | 
+          Depth: {formatWithUnit(selectedResult.depth, 'depth', unitSystem, 3)} | 
+          Area: {formatWithUnit(selectedResult.area, 'area', unitSystem, 2)} | 
+          Top Width: {formatWithUnit(selectedResult.topWidth, 'topWidth', unitSystem, 2)}
         </p>
       </div>
       
@@ -262,19 +313,19 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-gray-50 p-3 rounded-md">
             <p className="text-xs text-gray-500">Wetted Perimeter</p>
-            <p className="text-lg font-medium">{selectedResult.wetPerimeter.toFixed(2)} m</p>
+            <p className="text-lg font-medium">{formatWithUnit(selectedResult.wetPerimeter, 'wetPerimeter', unitSystem, 2)}</p>
           </div>
           <div className="bg-gray-50 p-3 rounded-md">
             <p className="text-xs text-gray-500">Hydraulic Radius</p>
-            <p className="text-lg font-medium">{selectedResult.hydraulicRadius.toFixed(3)} m</p>
+            <p className="text-lg font-medium">{formatWithUnit(selectedResult.hydraulicRadius, 'hydraulicRadius', unitSystem, 3)}</p>
           </div>
           <div className="bg-gray-50 p-3 rounded-md">
             <p className="text-xs text-gray-500">Velocity</p>
-            <p className="text-lg font-medium">{selectedResult.velocity.toFixed(2)} m/s</p>
+            <p className="text-lg font-medium">{formatWithUnit(selectedResult.velocity, 'velocity', unitSystem, 2)}</p>
           </div>
           <div className="bg-gray-50 p-3 rounded-md">
             <p className="text-xs text-gray-500">Froude Number</p>
-            <p className="text-lg font-medium">{selectedResult.froudeNumber.toFixed(3)}</p>
+            <p className="text-lg font-medium">{formatWithUnit(selectedResult.froudeNumber, 'froudeNumber', unitSystem, 3)}</p>
             <p className="text-xs text-gray-500">
               {getFlowRegimeDescription(selectedResult.froudeNumber)}
             </p>

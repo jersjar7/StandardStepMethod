@@ -12,7 +12,7 @@
  * to friction and other factors.
  */
 
-import { ChannelParams } from '../../stores/calculatorSlice';
+import { ChannelParams, WaterSurfaceProfileResults } from '../../types';
 
 // Import core calculation components
 import { 
@@ -56,7 +56,6 @@ import {
 
 import { 
   FlowDepthPoint, 
-  WaterSurfaceProfileResults,
   StepCalculationParams,
   ProfileCalculationParams,
   CalculationPoint,
@@ -65,12 +64,13 @@ import {
 } from './standardStep/types';
 
 import { FlowTransition } from './standardStep/transitionDetector';
-import { ProfileStatistics } from './standardStep/profileUtils';
+import { ProfileStatistics } from '../../types';
+import { calculateCriticalDepth } from './criticalFlow';
+import { calculateNormalDepth } from './normalFlow';
 
 // Export types for use in other components
 export type { 
   FlowDepthPoint, 
-  WaterSurfaceProfileResults,
   StepCalculationParams,
   ProfileCalculationParams,
   CalculationPoint
@@ -160,11 +160,10 @@ export function calculateProfileWithErrorHandling(
     return { 
       results: {
         ...results,
-        // Add additional properties if needed
         profileDescription: profileDescription.description,
         profileDetails: profileDescription.details,
         stats: profileStats
-      } as any
+      }
     };
   } catch (error) {
     return { 
@@ -196,8 +195,8 @@ export function calculateReferenceProfiles(
   normalProfile: FlowDepthPoint[]; 
 } {
   // Get basic depths
-  const criticalDepth = 0; // Import and use calculateCriticalDepth from criticalFlow.ts
-  const normalDepth = 0;   // Import and use calculateNormalDepth from normalFlow.ts
+  const criticalDepth = calculateCriticalDepth(params);
+  const normalDepth = calculateNormalDepth(params);
   
   // Create uniform station spacing
   const numPoints = 100;
@@ -210,16 +209,18 @@ export function calculateReferenceProfiles(
   for (let i = 0; i < numPoints; i++) {
     const station = i * step;
     
-    // Use calculatePropertiesAtDepth for each point
-    // This would require importing the relevant functions
+    // Calculate properties at critical depth
+    const criticalProps = calculatePropertiesAtDepth(criticalDepth, params);
     
-    // Placeholder for now
+    // Calculate properties at normal depth
+    const normalProps = calculatePropertiesAtDepth(normalDepth, params);
+    
     criticalProfile.push({
       x: station,
       y: criticalDepth,
-      velocity: 0,
-      froudeNumber: 1.0,
-      specificEnergy: 0,
+      velocity: criticalProps.velocity,
+      froudeNumber: 1.0, // By definition, Fr = 1 at critical depth
+      specificEnergy: criticalProps.specificEnergy,
       criticalDepth,
       normalDepth
     });
@@ -227,9 +228,9 @@ export function calculateReferenceProfiles(
     normalProfile.push({
       x: station,
       y: normalDepth,
-      velocity: 0,
-      froudeNumber: 0,
-      specificEnergy: 0,
+      velocity: normalProps.velocity,
+      froudeNumber: normalProps.froudeNumber,
+      specificEnergy: normalProps.specificEnergy,
       criticalDepth,
       normalDepth
     });

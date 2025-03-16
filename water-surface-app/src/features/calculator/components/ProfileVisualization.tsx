@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { CalculationResult, ProfileType } from '../types';
-import {  
-  PROFILE_TYPE_DESCRIPTIONS, 
-  CHANNEL_SLOPE_DESCRIPTIONS 
-} from '../stores/types/resultTypes';
+import { CalculationResult, ProfileType, UnitSystem } from '../types';
+import { PROFILE_TYPE_DESCRIPTIONS, CHANNEL_SLOPE_DESCRIPTIONS } from '../stores/types/resultTypes';
+import { formatWithUnit, getParameterLabels } from '../../../utils/formatters';
 
 interface ProfileVisualizationProps {
   results: CalculationResult[];
   profileType?: ProfileType;
   channelSlope?: 'mild' | 'critical' | 'steep';
+  unitSystem?: UnitSystem;
 }
 
 interface ChartDataPoint {
@@ -24,13 +23,17 @@ interface ChartDataPoint {
 const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({ 
   results,
   profileType = ProfileType.UNKNOWN,
-  channelSlope = 'mild'
+  channelSlope = 'mild',
+  unitSystem = 'metric'
 }) => {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [showChannelBottom, setShowChannelBottom] = useState<boolean>(true);
   const [showCriticalDepth, setShowCriticalDepth] = useState<boolean>(true);
   const [showNormalDepth, setShowNormalDepth] = useState<boolean>(true);
   const [showEnergyLine, setShowEnergyLine] = useState<boolean>(true);
+  
+  // Get parameter labels with correct units
+  const labels = getParameterLabels(unitSystem);
   
   useEffect(() => {
     if (results.length > 0) {
@@ -63,7 +66,9 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 border border-gray-300 shadow-lg rounded-lg">
-          <p className="text-sm font-medium text-gray-900">Station: {label} m</p>
+          <p className="text-sm font-medium text-gray-900">
+            {labels.station}: {formatWithUnit(label, 'station', unitSystem, 2)}
+          </p>
           {payload.map((entry: any, index: number) => {
             // Skip if value is undefined or hidden series
             if (entry.value === undefined) return null;
@@ -75,6 +80,24 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
             // Set color based on dataKey
             let color = entry.color;
             let label = entry.name;
+            let paramName: string;
+            
+            switch (entry.dataKey) {
+              case 'waterSurface':
+                paramName = 'depth';
+                break;
+              case 'criticalDepth':
+                paramName = 'criticalDepth';
+                break;
+              case 'normalDepth':
+                paramName = 'normalDepth';
+                break;
+              case 'energy':
+                paramName = 'energy';
+                break;
+              default:
+                paramName = entry.dataKey;
+            }
             
             return (
               <p 
@@ -82,7 +105,7 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
                 className="text-sm" 
                 style={{ color }}
               >
-                {label}: {entry.value.toFixed(3)} m
+                {label}: {formatWithUnit(entry.value, paramName, unitSystem, 3)}
               </p>
             );
           })}
@@ -169,10 +192,10 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
               dataKey="station" 
-              label={{ value: 'Station (m)', position: 'insideBottomRight', offset: -10 }} 
+              label={{ value: labels.station, position: 'insideBottomRight', offset: -10 }} 
             />
             <YAxis 
-              label={{ value: 'Elevation (m)', angle: -90, position: 'insideLeft' }}
+              label={{ value: labels.depth, angle: -90, position: 'insideLeft' }}
               domain={['dataMin - 0.5', 'dataMax + 0.5']}
             />
             <Tooltip content={<CustomTooltip />} />
@@ -262,6 +285,17 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
             <span><strong>Energy Grade Line:</strong> The total energy (elevation + pressure + velocity) at each point.</span>
           </li>
         </ul>
+      </div>
+      
+      {/* Flow regime explanation */}
+      <div className="mt-6 p-4 bg-gray-50 rounded-md">
+        <h4 className="text-md font-medium text-gray-900 mb-2">Flow Regime Information</h4>
+        <p className="text-sm text-gray-700">
+          The water surface profile shows how water depth changes along the channel. 
+          For subcritical flow (Fr &lt; 1), control is from downstream, while for supercritical flow (Fr &gt; 1), 
+          control is from upstream. Normal depth represents uniform flow, and critical depth 
+          is where specific energy is minimized.
+        </p>
       </div>
     </div>
   );

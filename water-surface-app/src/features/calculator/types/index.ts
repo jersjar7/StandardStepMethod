@@ -121,17 +121,38 @@ export interface CalculationResult {
 }
 
 /**
+ * Profile statistics
+ */
+export interface ProfileStatistics {
+  minDepth: number;                // Minimum depth
+  maxDepth: number;                // Maximum depth
+  avgDepth: number;                // Average depth
+  minVelocity: number;             // Minimum velocity
+  maxVelocity: number;             // Maximum velocity
+  avgVelocity: number;             // Average velocity
+  minFroude: number;               // Minimum Froude number
+  maxFroude: number;               // Maximum Froude number
+  avgFroude: number;               // Average Froude number
+  minEnergy: number;               // Minimum specific energy
+  maxEnergy: number;               // Maximum specific energy
+  avgEnergy: number;               // Average specific energy
+  length: number;                  // Profile length
+  numPoints: number;               // Number of calculation points
+  predominantFlowRegime: string;   // Predominant flow regime
+}
+
+/**
  * Water surface profile results
  */
 export interface WaterSurfaceProfileResults {
   flowProfile: FlowDepthPoint[];    // Array of flow depth points
-  profileType: ProfileType;         // Profile classification using enum
+  profileType: ProfileType | string; // Profile classification using enum or string
   channelType: string;              // Channel slope classification (mild, steep, critical)
   criticalDepth: number;            // Critical depth for the channel and discharge
   normalDepth: number;              // Normal depth for the channel and discharge
   isChoking: boolean;               // Indicates if choking occurred
   hydraulicJump?: HydraulicJump;    // Hydraulic jump details, if any
-  // Optional properties for extended analysis
+  // Added optional properties for extended analysis
   profileDescription?: string;      // Human-readable profile description
   profileDetails?: string;          // Detailed information about the profile
   stats?: ProfileStatistics;        // Statistical analysis of the profile
@@ -160,27 +181,6 @@ export interface ProfileCalculationParams {
   numSteps: number;                // Number of calculation steps
   channelSlope: ChannelSlope;      // Channel slope classification
   params: ChannelParams;           // Channel parameters
-}
-
-/**
- * Profile statistics
- */
-export interface ProfileStatistics {
-  minDepth: number;                // Minimum depth
-  maxDepth: number;                // Maximum depth
-  avgDepth: number;                // Average depth
-  minVelocity: number;             // Minimum velocity
-  maxVelocity: number;             // Maximum velocity
-  avgVelocity: number;             // Average velocity
-  minFroude: number;               // Minimum Froude number
-  maxFroude: number;               // Maximum Froude number
-  avgFroude: number;               // Average Froude number
-  minEnergy: number;               // Minimum specific energy
-  maxEnergy: number;               // Maximum specific energy
-  avgEnergy: number;               // Average specific energy
-  length: number;                  // Profile length
-  numPoints: number;               // Number of calculation points
-  predominantFlowRegime: string;   // Predominant flow regime
 }
 
 /**
