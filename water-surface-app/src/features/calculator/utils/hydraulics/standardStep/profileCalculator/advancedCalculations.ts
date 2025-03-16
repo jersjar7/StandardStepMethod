@@ -4,7 +4,7 @@ import { calculateNormalDepth } from '../../normalFlow';
 import { WaterSurfaceProfileResults, FlowDepthPoint } from '../types';
 import { detectHydraulicJump } from '../jumpDetector';
 import { calculateWaterSurfaceProfile } from './coreCalculator';
-import { calculateOptimalStepCount } from './initialConditions';
+import { interpolateProfileAtStations } from './profileInterpolation';
 
 /**
  * Calculates a high-resolution water surface profile with more calculation points
@@ -16,30 +16,14 @@ export function calculateHighResolutionProfile(
   params: ChannelParams,
   resolution: number = 200
 ): WaterSurfaceProfileResults {
-  // Save original channel length
-  const originalLength = params.length;
-  
-  // Modify params to use higher resolution
+  // Create modified params with higher resolution
   const modifiedParams = {
     ...params,
-    length: originalLength
+    _numSteps: resolution // Internal parameter to override default step count
   };
   
   // Calculate profile with high resolution
-  const results = calculateWaterSurfaceProfile({
-    ...modifiedParams,
-    // Override the calculated step count with the requested resolution
-    _calculatedStepCount: resolution
-  } as ChannelParams & { _calculatedStepCount: number });
-  
-  // Restore original length in results
-  results.flowProfile.forEach(point => {
-    if (point.x > originalLength) {
-      point.x = originalLength;
-    }
-  });
-  
-  return results;
+  return calculateWaterSurfaceProfile(modifiedParams as any);
 }
 
 /**
@@ -178,7 +162,11 @@ export function calculateVariableRoughnessProfile(
   // Set up initial conditions based on channel type
   let direction: 'upstream' | 'downstream';
   
-  if (baseParams.normalDepth > baseParams.criticalDepth) {
+  // Calculate critical and normal depths if not already provided
+  const normalDepth = baseParams.normalDepth ?? calculateNormalDepth(baseParams);
+  const criticalDepth = baseParams.criticalDepth ?? calculateCriticalDepth(baseParams);
+  
+  if (normalDepth > criticalDepth) {
     // Mild slope - subcritical flow
     direction = 'upstream';
   } else {
@@ -255,7 +243,7 @@ export function calculateVariableRoughnessProfile(
   return {
     flowProfile: sortedProfile,
     profileType: "Variable Roughness Profile",
-    channelType: baseParams.normalDepth > baseParams.criticalDepth ? 'mild' : 'steep',
+    channelType: normalDepth > criticalDepth ? 'mild' : 'steep',
     criticalDepth: calculateCriticalDepth(baseParams),
     normalDepth: calculateNormalDepth(baseParams), // Average normal depth
     isChoking: false, // Determined from merged profile
