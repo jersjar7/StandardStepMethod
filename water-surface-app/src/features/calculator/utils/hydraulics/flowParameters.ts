@@ -220,9 +220,6 @@ export function calculateSpecificForce(
       throw new Error(`Unsupported channel type: ${params.channelType}`);
   }
   
-  // Calculate velocity
-  const velocity = calculateVelocity(discharge, area);
-  
   // Calculate momentum flux: Q²/(g*A)
   const momentumFlux = Math.pow(discharge, 2) / (g * area);
   

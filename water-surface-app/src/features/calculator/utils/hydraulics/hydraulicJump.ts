@@ -1,6 +1,6 @@
 import { ChannelParams } from '../../stores/calculatorSlice';
 import { calculateArea, calculateTopWidth } from './channelGeometry';
-import { calculateVelocity, calculateFroudeNumber, calculateSpecificEnergy } from './flowParameters';
+import { calculateVelocity, calculateFroudeNumber } from './flowParameters';
 
 // Gravitational acceleration constant
 const G = 9.81; // m/s² in metric
@@ -215,7 +215,7 @@ export function calculateEnergyLoss(depth1: number, depth2: number): number {
  * @param froudeNumber1 Upstream Froude number
  * @returns Approximate length of hydraulic jump
  */
-export function calculateJumpLength(depth1: number, depth2: number, froudeNumber1: number): number {
+export function calculateJumpLength(_depth1: number, depth2: number, _froudeNumber1: number): number {
   // Approximate formula: L = 6 * y2
   return 6 * depth2;
 }

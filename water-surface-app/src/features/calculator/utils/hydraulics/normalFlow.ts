@@ -41,9 +41,6 @@ export function calculateNormalVelocity(params: ChannelParams): number {
    * @returns Channel slope classification
    */
   export function classifyChannelSlope(params: ChannelParams): 'mild' | 'critical' | 'steep' {
-    // Calculate normal depth
-    const normalDepth = calculateNormalDepth(params);
-    
     // First try to determine based on Froude number at normal depth
     const normalFroudeNumber = calculateNormalFroudeNumber(params);
     
@@ -155,10 +152,6 @@ export function calculateNormalVelocity(params: ChannelParams): number {
   }import { ChannelParams } from '../../stores/calculatorSlice';
   import { calculateArea, calculateHydraulicRadius } from './channelGeometry';
   import { calculateVelocity, calculateFroudeNumber } from './flowParameters';
-  
-  // Gravitational acceleration constant
-  const G = 9.81; // m/s² in metric
-  const G_IMPERIAL = 32.2; // ft/s² in imperial
   
   /**
    * Calculates the normal depth for a given channel, discharge, slope, and roughness

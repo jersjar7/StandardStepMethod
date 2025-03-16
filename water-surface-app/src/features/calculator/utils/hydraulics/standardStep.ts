@@ -1,7 +1,6 @@
 import { ChannelParams } from '../../stores/calculatorSlice';
 import { 
   calculateArea, 
-  calculateTopWidth, 
   calculateWetPerimeter 
 } from './channelGeometry';
 import { 
@@ -9,7 +8,6 @@ import {
   calculateFroudeNumber, 
   calculateSpecificEnergy,
   calculateFrictionSlope,
-  determineFlowRegime
 } from './flowParameters';
 import { 
   calculateCriticalDepth 
@@ -20,12 +18,7 @@ import {
 } from './normalFlow';
 import { 
   calculateHydraulicJump, 
-  isHydraulicJumpPossible 
 } from './hydraulicJump';
-
-// Gravitational acceleration constant
-const G = 9.81; // m/s² in metric
-const G_IMPERIAL = 32.2; // ft/s² in imperial
 
 /**
  * Interface for flow depth points in the profile
@@ -231,8 +224,6 @@ function calculateNextDepth(
   direction: 'upstream' | 'downstream',
   params: ChannelParams
 ): number {
-  // Get gravitational acceleration based on unit system
-  const g = params.units === 'imperial' ? G_IMPERIAL : G;
   
   // Calculate properties at current point
   const currentArea = calculateArea(currentY, params);

@@ -146,8 +146,6 @@ export function calculateCriticalVelocity(params: ChannelParams): number {
  * @returns Critical energy
  */
 export function calculateCriticalEnergy(params: ChannelParams): number {
-  // Get gravitational acceleration based on unit system
-  const g = params.units === 'imperial' ? G_IMPERIAL : G;
   
   // Calculate critical depth
   const criticalDepth = calculateCriticalDepth(params);
