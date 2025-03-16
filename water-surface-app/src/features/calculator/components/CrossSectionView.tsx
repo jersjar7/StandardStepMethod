@@ -1,9 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { CalculationResult } from '../stores/calculatorSlice';
+import { CalculationResult, ChannelType } from '../types';
+import { getFlowRegimeDescription } from '../stores/types/resultTypes';
 
 interface CrossSectionViewProps {
   selectedResult: CalculationResult;
-  channelType: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular';
+  channelType: ChannelType;
+}
+
+interface LabelPosition {
+  x: number;
+  y: number;
+  text: string;
 }
 
 const CrossSectionView: React.FC<CrossSectionViewProps> = ({ 
@@ -13,7 +20,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
   const [svgPath, setSvgPath] = useState<string>("");
   const [waterPath, setWaterPath] = useState<string>("");
   const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
-  const [labels, setLabels] = useState<Array<{x: number, y: number, text: string}>>([]);
+  const [labels, setLabels] = useState<LabelPosition[]>([]);
   
   useEffect(() => {
     // Regenerate the cross-section visualization when the selected result changes
@@ -41,7 +48,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     // Create SVG paths based on channel type
     let channelPath = "";
     let waterSurfacePath = "";
-    let newLabels: Array<{x: number, y: number, text: string}> = [];
+    let newLabels: LabelPosition[] = [];
     
     // Scale factors to fit the drawing within SVG
     const scale = Math.min((width - 2 * padding) / (topWidth || 1), (height - 2 * padding) / (depth || 1));
@@ -268,6 +275,9 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
           <div className="bg-gray-50 p-3 rounded-md">
             <p className="text-xs text-gray-500">Froude Number</p>
             <p className="text-lg font-medium">{selectedResult.froudeNumber.toFixed(3)}</p>
+            <p className="text-xs text-gray-500">
+              {getFlowRegimeDescription(selectedResult.froudeNumber)}
+            </p>
           </div>
         </div>
       </div>

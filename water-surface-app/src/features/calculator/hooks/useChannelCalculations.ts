@@ -2,17 +2,25 @@ import { useState, useCallback } from 'react';
 import { 
   ChannelParams, 
   CalculationResult, 
-  HydraulicJump 
-} from '../stores/calculatorSlice';
+  HydraulicJump,
+  FlowDepthPoint,
+  WaterSurfaceProfileResults
+} from '../types';
 import { 
-  calculateWaterSurfaceProfile as calculateProfile,
+  calculateWaterSurfaceProfile as calculationUtil,
   calculateCriticalDepth,
   calculateNormalDepth,
-  FlowDepthPoint
+  calculateArea,
+  calculateTopWidth,
+  calculateWetPerimeter,
+  calculateHydraulicRadius
 } from '../utils/hydraulics';
 
 /**
  * Hook for handling hydraulic calculations
+ * 
+ * This hook provides a clean interface for performing water surface profile calculations
+ * and related hydraulic computations, with proper state management for loading and error states.
  */
 export const useChannelCalculations = () => {
   const [isCalculating, setIsCalculating] = useState(false);
@@ -20,6 +28,9 @@ export const useChannelCalculations = () => {
 
   /**
    * Calculate the water surface profile for a given channel
+   * 
+   * @param params Channel parameters
+   * @returns Promise with calculation results and hydraulic jump information
    */
   const calculateWaterSurfaceProfile = useCallback(async (params: ChannelParams): Promise<{
     results: CalculationResult[];
@@ -30,7 +41,8 @@ export const useChannelCalculations = () => {
     
     try {
       // Call the imported utility function to calculate the water surface profile
-      const output = calculateProfile(params);
+      // We're doing a synchronous calculation but wrapping in an async function for future flexibility
+      const output: WaterSurfaceProfileResults = calculationUtil(params);
       
       // Convert from the hydraulics utility format to our application format
       const results: CalculationResult[] = output.flowProfile.map((point: FlowDepthPoint) => ({
@@ -68,69 +80,42 @@ export const useChannelCalculations = () => {
     }
   }, []);
 
-  // Helper functions to calculate channel properties
-  // These are only used for the conversion between formats
-  const calculateArea = (depth: number, params: ChannelParams): number => {
-    switch (params.channelType) {
-      case 'rectangular':
-        return params.bottomWidth * depth;
-      case 'trapezoidal':
-        return (params.bottomWidth + (params.sideSlope || 0) * depth) * depth;
-      case 'triangular':
-        return (params.sideSlope || 1) * depth * depth;
-      case 'circular':
-        const diameter = params.diameter || 1.0;
-        const theta = 2 * Math.acos(1 - 2 * depth / diameter);
-        return (diameter * diameter / 8) * (theta - Math.sin(theta));
-      default:
-        throw new Error(`Unsupported channel type: ${params.channelType}`);
+  /**
+   * Calculate the critical depth for the given channel parameters
+   * 
+   * @param params Channel parameters
+   * @returns Critical depth
+   */
+  const getCriticalDepth = useCallback((params: ChannelParams): number => {
+    try {
+      return calculateCriticalDepth(params);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
+      return 0;
     }
-  };
-  
-  const calculateTopWidth = (depth: number, params: ChannelParams): number => {
-    switch (params.channelType) {
-      case 'rectangular':
-        return params.bottomWidth;
-      case 'trapezoidal':
-        return params.bottomWidth + 2 * (params.sideSlope || 0) * depth;
-      case 'triangular':
-        return 2 * (params.sideSlope || 1) * depth;
-      case 'circular':
-        const diameter = params.diameter || 1.0;
-        const theta = 2 * Math.acos(1 - 2 * depth / diameter);
-        return diameter * Math.sin(theta / 2);
-      default:
-        throw new Error(`Unsupported channel type: ${params.channelType}`);
+  }, []);
+
+  /**
+   * Calculate the normal depth for the given channel parameters
+   * 
+   * @param params Channel parameters
+   * @returns Normal depth
+   */
+  const getNormalDepth = useCallback((params: ChannelParams): number => {
+    try {
+      return calculateNormalDepth(params);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
+      return 0;
     }
-  };
-  
-  const calculateWetPerimeter = (depth: number, params: ChannelParams): number => {
-    switch (params.channelType) {
-      case 'rectangular':
-        return params.bottomWidth + 2 * depth;
-      case 'trapezoidal':
-        return params.bottomWidth + 2 * depth * Math.sqrt(1 + (params.sideSlope || 0) ** 2);
-      case 'triangular':
-        return 2 * depth * Math.sqrt(1 + (params.sideSlope || 1) ** 2);
-      case 'circular':
-        const diameter = params.diameter || 1.0;
-        const theta = 2 * Math.acos(1 - 2 * depth / diameter);
-        return (diameter * theta) / 2;
-      default:
-        throw new Error(`Unsupported channel type: ${params.channelType}`);
-    }
-  };
-  
-  const calculateHydraulicRadius = (depth: number, params: ChannelParams): number => {
-    const area = calculateArea(depth, params);
-    const wetPerimeter = calculateWetPerimeter(depth, params);
-    return area / wetPerimeter;
-  };
+  }, []);
 
   return {
     calculateWaterSurfaceProfile,
-    calculateCriticalDepth, // Expose the imported utility functions
-    calculateNormalDepth,
+    getCriticalDepth,
+    getNormalDepth,
     isCalculating,
     error
   };

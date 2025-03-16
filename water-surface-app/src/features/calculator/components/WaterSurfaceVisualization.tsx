@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CalculationResult } from '../stores/calculatorSlice';
+import { CalculationResult } from '../types';
 
 interface WaterSurfaceVisualizationProps {
   results: CalculationResult[];

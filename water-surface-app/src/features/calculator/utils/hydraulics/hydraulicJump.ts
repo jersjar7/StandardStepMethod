@@ -1,4 +1,4 @@
-import { ChannelParams } from '../../stores/calculatorSlice';
+import { ChannelParams } from '../../types';
 import { calculateArea, calculateTopWidth } from './channelGeometry';
 import { calculateVelocity, calculateFroudeNumber } from './flowParameters';
 
@@ -10,12 +10,12 @@ const G_IMPERIAL = 32.2; // ft/s² in imperial
  * Interface for hydraulic jump result
  */
 export interface HydraulicJumpResult {
-  position: number;  // Location of jump
-  depth1: number;    // Upstream depth
-  depth2: number;    // Downstream depth
-  energyLoss: number; // Energy loss at jump
-  froudeNumber1: number; // Upstream Froude number
-  length: number;    // Approximate length of hydraulic jump
+  station: number;         // Location of jump
+  upstreamDepth: number;   // Upstream depth
+  downstreamDepth: number; // Downstream depth
+  energyLoss: number;      // Energy loss at jump
+  froudeNumber1: number;   // Upstream Froude number
+  length: number;          // Approximate length of hydraulic jump
 }
 
 /**
@@ -40,19 +40,19 @@ export function isHydraulicJumpPossible(upstreamDepth: number, params: ChannelPa
 
 /**
  * Calculates the sequent depth for a hydraulic jump
- * @param depth1 Upstream depth
+ * @param upstreamDepth Upstream depth
  * @param params Channel parameters
  * @returns Sequent depth (downstream depth after jump)
  */
-export function calculateSequentDepth(depth1: number, params: ChannelParams): number {
+export function calculateSequentDepth(upstreamDepth: number, params: ChannelParams): number {
   // Calculate area at upstream depth
-  const area1 = calculateArea(depth1, params);
+  const area1 = calculateArea(upstreamDepth, params);
   
   // Calculate velocity at upstream depth
   const velocity1 = calculateVelocity(params.discharge, area1);
   
   // Calculate Froude number at upstream depth
-  const froudeNumber1 = calculateFroudeNumber(velocity1, depth1, params);
+  const froudeNumber1 = calculateFroudeNumber(velocity1, upstreamDepth, params);
   
   // Get gravitational acceleration based on unit system
   const g = params.units === 'imperial' ? G_IMPERIAL : G;
@@ -60,14 +60,14 @@ export function calculateSequentDepth(depth1: number, params: ChannelParams): nu
   // For rectangular channels, use the standard sequent depth formula
   if (params.channelType === 'rectangular') {
     // Sequent depth: y2 = (y1/2) * (sqrt(1 + 8*Fr1^2) - 1)
-    return (depth1 / 2) * (Math.sqrt(1 + 8 * Math.pow(froudeNumber1, 2)) - 1);
+    return (upstreamDepth / 2) * (Math.sqrt(1 + 8 * Math.pow(froudeNumber1, 2)) - 1);
   }
   
   // For non-rectangular channels, use momentum equation
   // This requires iterative solution
   
   // Initial guess for sequent depth (based on rectangular approximation)
-  let depth2 = (depth1 / 2) * (Math.sqrt(1 + 8 * Math.pow(froudeNumber1, 2)) - 1);
+  let downstreamDepth = (upstreamDepth / 2) * (Math.sqrt(1 + 8 * Math.pow(froudeNumber1, 2)) - 1);
   
   // Tolerance for convergence
   const tolerance = 0.0001;
@@ -78,11 +78,11 @@ export function calculateSequentDepth(depth1: number, params: ChannelParams): nu
   // M1 = M2, where M = A^2/T + Q^2/(g*A)
   const evaluateFunction = (y2: number): number => {
     // Calculate properties at upstream depth
-    const area1 = calculateArea(depth1, params);
-    const topWidth1 = calculateTopWidth(depth1, params);
+    const area1 = calculateArea(upstreamDepth, params);
+    const topWidth1 = calculateTopWidth(upstreamDepth, params);
     
     // First moment of area for upstream
-    const firstMoment1 = calculateFirstMoment(depth1, area1, topWidth1, params);
+    const firstMoment1 = calculateFirstMoment(upstreamDepth, area1, topWidth1, params);
     
     // Momentum flux for upstream
     const momentumFlux1 = Math.pow(params.discharge, 2) / (g * area1);
@@ -109,7 +109,7 @@ export function calculateSequentDepth(depth1: number, params: ChannelParams): nu
   
   // Iterative solution
   while (iterations < maxIterations) {
-    const error = evaluateFunction(depth2);
+    const error = evaluateFunction(downstreamDepth);
     
     if (Math.abs(error) < tolerance) {
       // Solution found
@@ -118,15 +118,15 @@ export function calculateSequentDepth(depth1: number, params: ChannelParams): nu
     
     // Adjust depth2 based on error
     if (error > 0) {
-      depth2 += 0.01;
+      downstreamDepth += 0.01;
     } else {
-      depth2 -= 0.01;
+      downstreamDepth -= 0.01;
     }
     
     iterations++;
   }
   
-  return depth2;
+  return downstreamDepth;
 }
 
 /**
@@ -199,37 +199,37 @@ function calculateFirstMoment(
 
 /**
  * Calculates the energy loss in a hydraulic jump
- * @param depth1 Upstream depth
- * @param depth2 Downstream depth
+ * @param upstreamDepth Upstream depth
+ * @param downstreamDepth Downstream depth
  * @returns Energy loss
  */
-export function calculateEnergyLoss(depth1: number, depth2: number): number {
+export function calculateEnergyLoss(upstreamDepth: number, downstreamDepth: number): number {
   // Energy loss formula: E_loss = (y2 - y1)^3 / (4 * y1 * y2)
-  return Math.pow(depth2 - depth1, 3) / (4 * depth1 * depth2);
+  return Math.pow(downstreamDepth - upstreamDepth, 3) / (4 * upstreamDepth * downstreamDepth);
 }
 
 /**
  * Calculates the approximate length of a hydraulic jump
- * @param depth1 Upstream depth
- * @param depth2 Downstream depth
+ * @param upstreamDepth Upstream depth
+ * @param downstreamDepth Downstream depth
  * @param froudeNumber1 Upstream Froude number
  * @returns Approximate length of hydraulic jump
  */
-export function calculateJumpLength(_depth1: number, depth2: number, _froudeNumber1: number): number {
+export function calculateJumpLength(upstreamDepth: number, downstreamDepth: number, froudeNumber1: number): number {
   // Approximate formula: L = 6 * y2
-  return 6 * depth2;
+  return 6 * downstreamDepth;
 }
 
 /**
  * Calculates the hydraulic jump details
  * @param upstreamDepth Upstream water depth
- * @param position Station where jump occurs
+ * @param station Station where jump occurs
  * @param params Channel parameters
  * @returns Hydraulic jump details or undefined if jump is not possible
  */
 export function calculateHydraulicJump(
   upstreamDepth: number, 
-  position: number, 
+  station: number, 
   params: ChannelParams
 ): HydraulicJumpResult | undefined {
   // Check if hydraulic jump is possible
@@ -243,18 +243,18 @@ export function calculateHydraulicJump(
   const froudeNumber1 = calculateFroudeNumber(velocity1, upstreamDepth, params);
   
   // Calculate sequent depth
-  const depth2 = calculateSequentDepth(upstreamDepth, params);
+  const downstreamDepth = calculateSequentDepth(upstreamDepth, params);
   
   // Calculate energy loss
-  const energyLoss = calculateEnergyLoss(upstreamDepth, depth2);
+  const energyLoss = calculateEnergyLoss(upstreamDepth, downstreamDepth);
   
   // Calculate jump length
-  const jumpLength = calculateJumpLength(upstreamDepth, depth2, froudeNumber1);
+  const jumpLength = calculateJumpLength(upstreamDepth, downstreamDepth, froudeNumber1);
   
   return {
-    position,
-    depth1: upstreamDepth,
-    depth2,
+    station,
+    upstreamDepth,
+    downstreamDepth,
     energyLoss,
     froudeNumber1,
     length: jumpLength
