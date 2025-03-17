@@ -1,8 +1,9 @@
 import { ChannelParams } from '../../../types';
 import { 
-  HydraulicJumpResult, 
-  convertToStandardHydraulicJump,
-  HydraulicJump
+  HydraulicJump, 
+  HydraulicJumpDetails,
+  createHydraulicJump,
+  isOccurringJump
 } from '../../../types/hydraulicJumpTypes';
 import { FlowDepthPoint } from './types';
 import { 
@@ -34,7 +35,7 @@ export function isJumpBetweenPoints(
 export function detectHydraulicJump(
   profile: FlowDepthPoint[],
   params: ChannelParams
-): HydraulicJumpResult | null {
+): HydraulicJump {
   // Sort profile by station to ensure correct order
   const sortedProfile = [...profile].sort((a, b) => a.x - b.x);
   
@@ -55,7 +56,8 @@ export function detectHydraulicJump(
     }
   }
   
-  return null;
+  // No jump detected
+  return createHydraulicJump();
 }
 
 /**
@@ -69,7 +71,7 @@ export function refineJumpLocation(
   profile: FlowDepthPoint[],
   jumpLocation: number,
   params: ChannelParams
-): HydraulicJumpResult | null {
+): HydraulicJump {
   // Sort profile by station
   const sortedProfile = [...profile].sort((a, b) => a.x - b.x);
   
@@ -124,8 +126,8 @@ export function refineJumpLocation(
 export function detectMultipleJumps(
   profile: FlowDepthPoint[],
   params: ChannelParams
-): HydraulicJumpResult[] {
-  const jumps: HydraulicJumpResult[] = [];
+): HydraulicJump[] {
+  const jumps: HydraulicJump[] = [];
   
   // Sort profile by station
   const sortedProfile = [...profile].sort((a, b) => a.x - b.x);
@@ -144,8 +146,8 @@ export function detectMultipleJumps(
         // Calculate hydraulic jump details
         const jump = calculateHydraulicJump(currentPoint.y, jumpLocation, params);
         
-        // Add jump to the list if it exists
-        if (jump) {
+        // Add jump to the list if it occurs
+        if (isOccurringJump(jump)) {
           jumps.push(jump);
         }
       }
@@ -163,9 +165,12 @@ export function detectMultipleJumps(
  */
 export function incorporateJumpsIntoProfile(
   profile: FlowDepthPoint[],
-  jumps: HydraulicJumpResult[]
+  jumps: HydraulicJump[]
 ): FlowDepthPoint[] {
-  if (jumps.length === 0) {
+  // Filter to only include occurring jumps
+  const occurringJumps = jumps.filter(isOccurringJump);
+  
+  if (occurringJumps.length === 0) {
     return profile; // No jumps to incorporate
   }
   
@@ -173,7 +178,7 @@ export function incorporateJumpsIntoProfile(
   const sortedProfile = [...profile].sort((a, b) => a.x - b.x);
   
   // Sort jumps by position
-  const sortedJumps = [...jumps].sort((a, b) => a.position - b.position);
+  const sortedJumps = [...occurringJumps].sort((a, b) => a.station - b.station);
   
   // Create a new array to store the updated profile
   const updatedProfile: FlowDepthPoint[] = [];
@@ -190,12 +195,12 @@ export function incorporateJumpsIntoProfile(
       const nextPoint = sortedProfile[i+1];
       
       for (const jump of sortedJumps) {
-        if (jump.position > currentPoint.x && jump.position < nextPoint.x) {
+        if (jump.station > currentPoint.x && jump.station < nextPoint.x) {
           // There's a jump between these points
           // Add a point at the jump location with the sequent depth
           const jumpPointBefore: FlowDepthPoint = {
-            x: jump.position - 0.01, // Just before jump
-            y: jump.depth1,
+            x: jump.station - 0.01, // Just before jump
+            y: jump.upstreamDepth,
             velocity: currentPoint.velocity, // Approximate values
             froudeNumber: jump.froudeNumber1 ?? 1.0, // Use default if undefined
             specificEnergy: currentPoint.specificEnergy, // Approximate
@@ -204,8 +209,8 @@ export function incorporateJumpsIntoProfile(
           };
           
           const jumpPointAfter: FlowDepthPoint = {
-            x: jump.position + 0.01, // Just after jump
-            y: jump.depth2,
+            x: jump.station + 0.01, // Just after jump
+            y: jump.downstreamDepth,
             velocity: nextPoint.velocity, // Approximate values
             froudeNumber: (jump.froudeNumber1 && jump.froudeNumber1 > 0) 
               ? 1 / jump.froudeNumber1 
