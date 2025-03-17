@@ -9,8 +9,6 @@ import {
   ChannelType,
   ProfileType,
   FlowRegime,
-  StandardCalculationResult,
-  convertFlowPointToStandardResult
 } from '../types';
 
 // Import helper functions from type files
@@ -115,6 +113,17 @@ export const calculatorSlice = createSlice({
       // If need to track a selected result for visualization
       state.selectedResultIndex = action.payload;
     },
+
+    // New reset results action
+    resetResults: (state) => {
+      // Reset to initial state for results-related properties
+      state.detailedResults = undefined;
+      state.results = [];
+      state.hydraulicJump = undefined;
+      state.profileType = undefined;
+      state.flowRegime = undefined;
+      state.error = null;
+    },
     
     /**
      * Sets the water surface profile results using the standardized format
@@ -125,7 +134,7 @@ export const calculatorSlice = createSlice({
       state.detailedResults = action.payload;
       
       // Extract key properties for convenience
-      const { flowProfile, hydraulicJump, profileType, channelType } = action.payload;
+      const { flowProfile, hydraulicJump, profileType } = action.payload;
       
       // Set hydraulic jump and profile type
       state.hydraulicJump = hydraulicJump;
@@ -195,7 +204,8 @@ export const {
   calculationFailure,
   resetCalculator,
   setSelectedResultIndex,
-  setWaterSurfaceResults
+  resetResults,
+  setWaterSurfaceResults,
 } = calculatorSlice.actions;
 
 // Export reducer

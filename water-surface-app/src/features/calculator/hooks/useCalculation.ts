@@ -5,11 +5,10 @@ import {
   setWaterSurfaceResults,
   calculationFailure, 
   resetCalculator
-} from '../stores/calculatorActions';
+} from '../stores/calculatorSlice';
 import { RootState } from '../../../stores';
 import { 
   ChannelParams, 
-  WaterSurfaceProfileResults,
   FlowRegime 
 } from '../types';
 import { useChannelCalculations } from './useChannelCalculations';

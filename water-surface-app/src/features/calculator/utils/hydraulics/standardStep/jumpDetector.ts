@@ -1,7 +1,6 @@
 import { ChannelParams } from '../../../types';
 import { 
   HydraulicJump, 
-  HydraulicJumpDetails,
   createHydraulicJump,
   isOccurringJump
 } from '../../../types/hydraulicJumpTypes';
@@ -10,6 +9,10 @@ import {
   isHydraulicJumpPossible, 
   calculateHydraulicJump 
 } from '../hydraulicJump';
+
+import { 
+  calculateTopWidth 
+} from '../channelGeometry';
 
 /**
  * Checks if a hydraulic jump is present between two profile points
@@ -161,14 +164,16 @@ export function detectMultipleJumps(
  * Updates a profile to account for hydraulic jumps
  * @param profile Array of flow depth points
  * @param jumps Array of hydraulic jump details
+ * @param params Channel parameters for calculating top width
  * @returns Updated profile with jump-corrected depths
  */
 export function incorporateJumpsIntoProfile(
   profile: FlowDepthPoint[],
-  jumps: HydraulicJump[]
+  jumps: HydraulicJump[],
+  params: ChannelParams
 ): FlowDepthPoint[] {
   // Filter to only include occurring jumps
-  const occurringJumps = jumps.filter(isOccurringJump);
+  const occurringJumps = jumps.filter(jump => jump.occurs);
   
   if (occurringJumps.length === 0) {
     return profile; // No jumps to incorporate
@@ -196,6 +201,10 @@ export function incorporateJumpsIntoProfile(
       
       for (const jump of sortedJumps) {
         if (jump.station > currentPoint.x && jump.station < nextPoint.x) {
+          // Calculate top width for jump points
+          const jumpBeforeTopWidth = calculateTopWidth(jump.upstreamDepth, params);
+          const jumpAfterTopWidth = calculateTopWidth(jump.downstreamDepth, params);
+          
           // There's a jump between these points
           // Add a point at the jump location with the sequent depth
           const jumpPointBefore: FlowDepthPoint = {
@@ -205,7 +214,8 @@ export function incorporateJumpsIntoProfile(
             froudeNumber: jump.froudeNumber1 ?? 1.0, // Use default if undefined
             specificEnergy: currentPoint.specificEnergy, // Approximate
             criticalDepth: currentPoint.criticalDepth,
-            normalDepth: currentPoint.normalDepth
+            normalDepth: currentPoint.normalDepth,
+            topWidth: jumpBeforeTopWidth // Add top width calculation
           };
           
           const jumpPointAfter: FlowDepthPoint = {
@@ -217,7 +227,8 @@ export function incorporateJumpsIntoProfile(
               : 0.5, // Provide default
             specificEnergy: jumpPointBefore.specificEnergy - (jump.energyLoss ?? 0), // Handle undefined
             criticalDepth: nextPoint.criticalDepth,
-            normalDepth: nextPoint.normalDepth
+            normalDepth: nextPoint.normalDepth,
+            topWidth: jumpAfterTopWidth // Add top width calculation
           };
           
           updatedProfile.push(jumpPointBefore);

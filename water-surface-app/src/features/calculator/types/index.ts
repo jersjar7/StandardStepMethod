@@ -221,5 +221,28 @@ export interface ExportOptions {
   decimalPlaces?: number;             // Number of decimal places
 }
 
+/**
+ * DetailedWaterSurfaceResults
+ */
+export interface DetailedWaterSurfaceResults extends WaterSurfaceProfileResults {
+  profileDescription?: string;
+  profileDetails?: string;
+  flowRegime?: FlowRegime;
+  stats?: ProfileStatistics;
+}
+
+/**
+ * enhanceWithDetails
+ */
+export function enhanceWithDetails<T extends WaterSurfaceProfileResults>(
+  baseResults: T, 
+  additionalProps: Partial<DetailedWaterSurfaceResults>
+): DetailedWaterSurfaceResults {
+  return {
+    ...baseResults,
+    ...additionalProps
+  };
+}
+
 // Export unified result types
 export * from './resultTypes';

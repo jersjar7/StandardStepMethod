@@ -3,14 +3,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   updateChannelParams,
   setChannelType,
-  setWaterSurfaceResults
+  setWaterSurfaceResults,
+  resetResults
 } from './stores/calculatorSlice';
 import { RootState } from '../../stores';
 import { 
-  ProfileType, 
   ChannelType, 
-  WaterSurfaceProfileResults,
-  FlowRegime
 } from './types';
 
 // Import components
@@ -77,7 +75,7 @@ const Calculator: React.FC = () => {
   
   // Handle reset
   const handleReset = () => {
-    dispatch(setWaterSurfaceResults(undefined));
+    dispatch(resetResults());
     setActiveTab('input');
   };
   
@@ -158,8 +156,8 @@ const Calculator: React.FC = () => {
             </div>
             
             <ResultsTable 
-              standardResults={detailedResults}
-              onSelectStation={setSelectedStation}
+              results={detailedResults}
+              onSelectPoint={(point) => setSelectedStation(point.x)}
             />
             
             {detailedResults.hydraulicJump?.occurs && (
@@ -203,9 +201,9 @@ const Calculator: React.FC = () => {
             </div>
             
             <CrossSectionView
-              selectedFlowPoint={getResultAtStation()}
+              selectedFlowPoint={getResultAtStation() || undefined}
               channelType={channelParams.channelType}
-              standardResults={detailedResults}
+              results={detailedResults}
             />
           </div>
         )}

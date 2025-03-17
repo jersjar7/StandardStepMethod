@@ -58,6 +58,7 @@ import {
 
 import { calculateCriticalDepth } from './criticalFlow';
 import { calculateNormalDepth } from './normalFlow';
+import { calculateTopWidth } from './channelGeometry';
 
 // Export types for use in other components
 export type { FlowDepthPoint, FlowTransition };
@@ -298,6 +299,10 @@ export function calculateReferenceProfiles(
     // Calculate properties at normal depth
     const normalProps = calculatePropertiesAtDepth(normalDepth, params);
     
+    // Calculate top width for critical and normal depths
+    const criticalTopWidth = calculateTopWidth(criticalDepth, params);
+    const normalTopWidth = calculateTopWidth(normalDepth, params);
+    
     criticalProfile.push({
       x: station,
       y: criticalDepth,
@@ -305,7 +310,8 @@ export function calculateReferenceProfiles(
       froudeNumber: 1.0, // By definition, Fr = 1 at critical depth
       specificEnergy: criticalProps.specificEnergy,
       criticalDepth,
-      normalDepth
+      normalDepth,
+      topWidth: criticalTopWidth // Add top width
     });
     
     normalProfile.push({
@@ -315,7 +321,8 @@ export function calculateReferenceProfiles(
       froudeNumber: normalProps.froudeNumber,
       specificEnergy: normalProps.specificEnergy,
       criticalDepth,
-      normalDepth
+      normalDepth,
+      topWidth: normalTopWidth // Add top width
     });
   }
   
