@@ -171,7 +171,6 @@ export function validateCalculationParameters(
       }
       break;
       
-    case 'trapezoidal':
     case 'triangular':
       if (!params.sideSlope || params.sideSlope <= 0) {
         return { isValid: false, message: "Side slope must be positive" };

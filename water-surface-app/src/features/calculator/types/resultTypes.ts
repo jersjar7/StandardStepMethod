@@ -7,20 +7,13 @@
  */
 
 import { 
-    ChannelParams, 
-    ChannelType, 
-    UnitSystem,
-    HydraulicJump,
-    ProfileType as ProfileTypeEnum,
-    FlowRegime as FlowRegimeEnum,
-    WaterSurfaceProfileResults,
-    FlowDepthPoint
-  } from './index';
-  
-  // Re-export the enum types for convenience
-  export type ProfileType = ProfileTypeEnum;
-  export type FlowRegime = FlowRegimeEnum;
-  
+  HydraulicJump,
+  ProfileType,
+  FlowRegime,
+  WaterSurfaceProfileResults,
+  FlowDepthPoint
+} from './index';
+   
   /**
    * Type for calculation result with potential error
    * Used for error handling in calculation processes
@@ -67,7 +60,7 @@ import {
    */
   export function createStandardResults(
     flowProfile: FlowDepthPoint[],
-    profileType: ProfileTypeEnum | string,
+    profileType: ProfileType | string,
     channelType: string,
     criticalDepth: number,
     normalDepth: number,
@@ -120,26 +113,26 @@ import {
   /**
    * Flow regime description options
    */
-  export const FLOW_REGIME_DESCRIPTIONS: Record<FlowRegimeEnum, string> = {
-    [FlowRegimeEnum.SUBCRITICAL]: 'Subcritical Flow (Fr < 1)',
-    [FlowRegimeEnum.CRITICAL]: 'Critical Flow (Fr = 1)',
-    [FlowRegimeEnum.SUPERCRITICAL]: 'Supercritical Flow (Fr > 1)'
+  export const FLOW_REGIME_DESCRIPTIONS: Record<FlowRegime, string> = {
+    [FlowRegime.SUBCRITICAL]: 'Subcritical Flow (Fr < 1)',
+    [FlowRegime.CRITICAL]: 'Critical Flow (Fr = 1)',
+    [FlowRegime.SUPERCRITICAL]: 'Supercritical Flow (Fr > 1)'
   };
   
   /**
    * Profile type descriptions
    */
-  export const PROFILE_TYPE_DESCRIPTIONS: Record<ProfileTypeEnum, string> = {
-    [ProfileTypeEnum.M1]: 'M1 - Backwater Curve (Mild Slope)',
-    [ProfileTypeEnum.M2]: 'M2 - Drawdown Curve (Mild Slope)',
-    [ProfileTypeEnum.M3]: 'M3 - Rapidly Varied Flow (Mild Slope)',
-    [ProfileTypeEnum.S1]: 'S1 - Backwater Curve (Steep Slope)',
-    [ProfileTypeEnum.S2]: 'S2 - Drawdown Curve (Steep Slope)',
-    [ProfileTypeEnum.S3]: 'S3 - Rapidly Varied Flow (Steep Slope)',
-    [ProfileTypeEnum.C1]: 'C1 - Backwater Curve (Critical Slope)',
-    [ProfileTypeEnum.C2]: 'C2 - Uniform Flow (Critical Slope)',
-    [ProfileTypeEnum.C3]: 'C3 - Drawdown Curve (Critical Slope)',
-    [ProfileTypeEnum.UNKNOWN]: 'Unknown Profile Type'
+  export const PROFILE_TYPE_DESCRIPTIONS: Record<ProfileType, string> = {
+    [ProfileType.M1]: 'M1 - Backwater Curve (Mild Slope)',
+    [ProfileType.M2]: 'M2 - Drawdown Curve (Mild Slope)',
+    [ProfileType.M3]: 'M3 - Rapidly Varied Flow (Mild Slope)',
+    [ProfileType.S1]: 'S1 - Backwater Curve (Steep Slope)',
+    [ProfileType.S2]: 'S2 - Drawdown Curve (Steep Slope)',
+    [ProfileType.S3]: 'S3 - Rapidly Varied Flow (Steep Slope)',
+    [ProfileType.C1]: 'C1 - Backwater Curve (Critical Slope)',
+    [ProfileType.C2]: 'C2 - Uniform Flow (Critical Slope)',
+    [ProfileType.C3]: 'C3 - Drawdown Curve (Critical Slope)',
+    [ProfileType.UNKNOWN]: 'Unknown Profile Type'
   };
   
   /**
@@ -156,11 +149,11 @@ import {
    */
   export function getFlowRegimeDescription(froudeNumber: number): string {
     if (froudeNumber < 0.95) {
-      return FLOW_REGIME_DESCRIPTIONS[FlowRegimeEnum.SUBCRITICAL];
+      return FLOW_REGIME_DESCRIPTIONS[FlowRegime.SUBCRITICAL];
     } else if (froudeNumber > 1.05) {
-      return FLOW_REGIME_DESCRIPTIONS[FlowRegimeEnum.SUPERCRITICAL];
+      return FLOW_REGIME_DESCRIPTIONS[FlowRegime.SUPERCRITICAL];
     } else {
-      return FLOW_REGIME_DESCRIPTIONS[FlowRegimeEnum.CRITICAL];
+      return FLOW_REGIME_DESCRIPTIONS[FlowRegime.CRITICAL];
     }
   }
   
@@ -172,27 +165,27 @@ import {
     depth: number, 
     normalDepth: number, 
     criticalDepth: number
-  ): ProfileTypeEnum {
+  ): ProfileType {
     if (channelSlope === 'mild') {
-      if (depth > normalDepth) return ProfileTypeEnum.M1;
-      if (depth < normalDepth && depth > criticalDepth) return ProfileTypeEnum.M2;
-      if (depth < criticalDepth) return ProfileTypeEnum.M3;
+      if (depth > normalDepth) return ProfileType.M1;
+      if (depth < normalDepth && depth > criticalDepth) return ProfileType.M2;
+      if (depth < criticalDepth) return ProfileType.M3;
     } else if (channelSlope === 'steep') {
-      if (depth > criticalDepth) return ProfileTypeEnum.S1;
-      if (depth < criticalDepth && depth > normalDepth) return ProfileTypeEnum.S2;
-      if (depth < normalDepth) return ProfileTypeEnum.S3;
+      if (depth > criticalDepth) return ProfileType.S1;
+      if (depth < criticalDepth && depth > normalDepth) return ProfileType.S2;
+      if (depth < normalDepth) return ProfileType.S3;
     } else if (channelSlope === 'critical') {
-      if (depth > criticalDepth) return ProfileTypeEnum.C1;
-      if (depth < criticalDepth) return ProfileTypeEnum.C3;
-      return ProfileTypeEnum.C2;
+      if (depth > criticalDepth) return ProfileType.C1;
+      if (depth < criticalDepth) return ProfileType.C3;
+      return ProfileType.C2;
     }
     
-    return ProfileTypeEnum.UNKNOWN;
+    return ProfileType.UNKNOWN;
   }
   
   /**
    * Get a description of the profile type
    */
-  export function getProfileTypeDescription(profileType: ProfileTypeEnum): string {
+  export function getProfileTypeDescription(profileType: ProfileType): string {
     return PROFILE_TYPE_DESCRIPTIONS[profileType] || 'Unknown Profile Type';
   }

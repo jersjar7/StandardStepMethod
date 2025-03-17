@@ -244,5 +244,4 @@ export function enhanceWithDetails<T extends WaterSurfaceProfileResults>(
   };
 }
 
-// Export unified result types
-export * from './resultTypes';
+// Removed: export * from './resultTypes';
