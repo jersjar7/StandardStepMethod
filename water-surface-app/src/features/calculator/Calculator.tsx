@@ -10,7 +10,9 @@ import {
   ProfileType, 
   ChannelType, 
   WaterSurfaceProfileResults,
-  FlowRegime
+  FlowRegime,
+  CalculationResult,
+  HydraulicJump
 } from './types';
 
 // Import components
@@ -25,13 +27,14 @@ import ExportMenu from './components/ExportMenu';
 // Import hydraulics utilities and hooks
 import { useCalculation } from './hooks/useCalculation';
 import { useResults } from './hooks/useResults';
+import { useChannelCalculations } from './hooks/useChannelCalculations';
 
 const Calculator: React.FC = () => {
   const dispatch = useDispatch();
   const {
     channelParams,
     results,
-    detailedResults, // New property for standardized results
+    detailedResults,
     isCalculating,
     error,
     hydraulicJump,
@@ -41,10 +44,12 @@ const Calculator: React.FC = () => {
   
   const [activeTab, setActiveTab] = useState<TabType>('input');
   
+  // Use the channel calculations hook for detailed calculations
+  const { runDetailedCalculation } = useChannelCalculations();
+  
   // Use custom hooks for calculations and results handling
   const { 
     runCalculation, 
-    runDetailedCalculation, // New method for standardized results
     resetCalculation, 
     getChannelClassification 
   } = useCalculation();
@@ -69,20 +74,20 @@ const Calculator: React.FC = () => {
     }
   }, [results, isCalculating, activeTab]);
   
-  // Handle calculation - updated to use both legacy and standardized calculations
+  // Handle calculation - calculate both legacy and standardized results
   const handleCalculate = async () => {
     // Run standard calculation for backward compatibility
-    await runCalculation(channelParams);
+    const legacyResults = await runCalculation(channelParams);
     
-    // Also run the detailed calculation for standardized results
+    // Run the detailed calculation for standardized results
     try {
-      const detailedResults = await runDetailedCalculation(channelParams);
-      if (detailedResults) {
-        dispatch(setWaterSurfaceResults(detailedResults));
+      const standardResults = await runDetailedCalculation(channelParams);
+      if (standardResults) {
+        dispatch(setWaterSurfaceResults(standardResults));
       }
     } catch (error) {
-      // Error is already handled by runCalculation
       console.error('Detailed calculation error:', error);
+      // Error is already handled by runCalculation
     }
   };
   

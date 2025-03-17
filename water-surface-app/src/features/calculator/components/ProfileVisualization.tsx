@@ -1,11 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { CalculationResult, ProfileType, UnitSystem } from '../types';
+import { 
+  CalculationResult, 
+  ProfileType, 
+  UnitSystem, 
+  WaterSurfaceProfileResults,
+  FlowDepthPoint,
+  FlowRegime
+} from '../types';
 import { PROFILE_TYPE_DESCRIPTIONS, CHANNEL_SLOPE_DESCRIPTIONS } from '../stores/types/resultTypes';
 import { formatWithUnit, getParameterLabels } from '../../../utils/formatters';
 
 interface ProfileVisualizationProps {
+  // Support both legacy and standardized results
   results: CalculationResult[];
+  standardResults?: WaterSurfaceProfileResults;
   profileType?: ProfileType;
   channelSlope?: 'mild' | 'critical' | 'steep';
   unitSystem?: UnitSystem;
@@ -22,6 +31,7 @@ interface ChartDataPoint {
 
 const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({ 
   results,
+  standardResults,
   profileType = ProfileType.UNKNOWN,
   channelSlope = 'mild',
   unitSystem = 'metric'
@@ -36,8 +46,21 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
   const labels = getParameterLabels(unitSystem);
   
   useEffect(() => {
-    if (results.length > 0) {
-      // Prepare data for the chart
+    // Prepare data for the chart, prioritizing standardized results if available
+    if (standardResults?.flowProfile && standardResults.flowProfile.length > 0) {
+      // Use the new standardized format
+      const formattedData = standardResults.flowProfile.map(point => ({
+        station: point.x,
+        waterSurface: point.y,
+        channelBottom: 0, // Assuming a flat channel bottom for simplicity
+        criticalDepth: point.criticalDepth,
+        normalDepth: point.normalDepth,
+        energy: point.specificEnergy,
+      }));
+      
+      setChartData(formattedData);
+    } else if (results.length > 0) {
+      // Fall back to legacy format
       const formattedData = results.map(result => ({
         station: result.station,
         waterSurface: result.depth,
@@ -49,17 +72,23 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
       
       setChartData(formattedData);
     }
-  }, [results]);
+  }, [results, standardResults]);
   
-  // Get profile type description
-  const profileTypeValue = profileType || 
+  // Get profile type description - prioritize standardized results if available
+  const displayProfileType = standardResults?.profileType || profileType || 
     (results.length > 0 ? determineProfileType(results) : ProfileType.UNKNOWN);
   
-  const profileDescription = PROFILE_TYPE_DESCRIPTIONS[profileTypeValue] || 
-    "Water Surface Profile";
+  const profileDescription = typeof displayProfileType === 'string' 
+    ? displayProfileType 
+    : PROFILE_TYPE_DESCRIPTIONS[displayProfileType] || "Water Surface Profile";
   
-  const channelSlopeDescription = CHANNEL_SLOPE_DESCRIPTIONS[channelSlope] || 
+  // Get slope description - prioritize standardized results if available
+  const channelSlopeValue = standardResults?.channelType || channelSlope;
+  const channelSlopeDescription = CHANNEL_SLOPE_DESCRIPTIONS[channelSlopeValue as string] || 
     "Channel Classification";
+  
+  // Additional profile details if available from standardized results
+  const profileDetails = standardResults?.profileDescription || "";
   
   // Custom tooltip component
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -116,7 +145,7 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
   };
   
   // If no results, show empty state
-  if (results.length === 0) {
+  if ((results.length === 0) && (!standardResults?.flowProfile || standardResults.flowProfile.length === 0)) {
     return (
       <div className="bg-white shadow rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900">Water Surface Profile Visualization</h3>
@@ -138,6 +167,11 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
           <p className="text-sm text-gray-600">
             {channelSlopeDescription}
           </p>
+          {profileDetails && (
+            <p className="text-sm text-gray-600 mt-1">
+              {profileDetails}
+            </p>
+          )}
         </div>
       </div>
       
@@ -296,13 +330,34 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
           control is from upstream. Normal depth represents uniform flow, and critical depth 
           is where specific energy is minimized.
         </p>
+        
+        {/* Display additional details from standardized results if available */}
+        {standardResults?.stats && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <h5 className="text-sm font-medium text-gray-900 mb-1">Profile Statistics</h5>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-700">
+              <div>
+                <span className="font-medium">Depth Range:</span> {formatWithUnit(standardResults.stats.minDepth, 'depth', unitSystem, 2)} - {formatWithUnit(standardResults.stats.maxDepth, 'depth', unitSystem, 2)}
+              </div>
+              <div>
+                <span className="font-medium">Froude Range:</span> {standardResults.stats.minFroude.toFixed(2)} - {standardResults.stats.maxFroude.toFixed(2)}
+              </div>
+              <div>
+                <span className="font-medium">Flow Regime:</span> {standardResults.stats.predominantFlowRegime}
+              </div>
+              <div>
+                <span className="font-medium">Length:</span> {formatWithUnit(standardResults.stats.length, 'length', unitSystem, 0)}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 /**
- * Determine profile type from results
+ * Determine profile type from legacy results
  * @param results Calculation results
  * @returns Profile type
  */

@@ -1,11 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CalculationResult } from '../types';
+import { 
+  CalculationResult, 
+  WaterSurfaceProfileResults,
+  FlowDepthPoint,
+  UnitSystem
+} from '../types';
+import { formatWithUnit } from '../../../utils/formatters';
 
 interface WaterSurfaceVisualizationProps {
+  // Support both legacy and standardized results
   results: CalculationResult[];
+  standardResults?: WaterSurfaceProfileResults;
+  unitSystem?: UnitSystem;
 }
 
-const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ results }) => {
+const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ 
+  results, 
+  standardResults,
+  unitSystem = 'metric'
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -30,7 +43,11 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ r
   }, []);
 
   useEffect(() => {
-    if (!results || results.length === 0) {
+    // Check for both legacy and standardized results
+    const hasLegacyResults = results && results.length > 0;
+    const hasStandardResults = standardResults?.flowProfile && standardResults.flowProfile.length > 0;
+    
+    if (!hasLegacyResults && !hasStandardResults) {
       setIsLoading(false);
       setError("No calculation results available");
       return;
@@ -44,10 +61,15 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ r
       setError(err instanceof Error ? err.message : "An error occurred during visualization");
       setIsLoading(false);
     }
-  }, [results, canvasSize]);
+  }, [results, standardResults, canvasSize, unitSystem]);
 
   const renderWaterSurface = () => {
-    if (!canvasRef.current || !results || results.length === 0) return;
+    if (!canvasRef.current) return;
+    
+    // Determine which data source to use
+    const useStandardResults = standardResults?.flowProfile && standardResults.flowProfile.length > 0;
+    
+    if (!useStandardResults && (!results || results.length === 0)) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -57,10 +79,25 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ r
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Extract data from results
-    const stations = results.map(r => r.station);
-    const depths = results.map(r => r.depth);
-    const criticalDepth = results[0]?.criticalDepth || 0;
-    const normalDepth = results[0]?.normalDepth || 0;
+    let stations: number[] = [];
+    let depths: number[] = [];
+    let criticalDepth = 0;
+    let normalDepth = 0;
+    
+    if (useStandardResults) {
+      // Use standardized results
+      const flowProfile = standardResults!.flowProfile;
+      stations = flowProfile.map(p => p.x);
+      depths = flowProfile.map(p => p.y);
+      criticalDepth = standardResults!.criticalDepth || 0;
+      normalDepth = standardResults!.normalDepth || 0;
+    } else {
+      // Use legacy results
+      stations = results.map(r => r.station);
+      depths = results.map(r => r.depth);
+      criticalDepth = results[0]?.criticalDepth || 0;
+      normalDepth = results[0]?.normalDepth || 0;
+    }
 
     // Find min and max values for scaling
     const minStation = Math.min(...stations);
@@ -131,13 +168,13 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ r
     // Axis labels
     ctx.fillStyle = '#000';
     ctx.textAlign = 'center';
-    ctx.fillText('Station (m)', canvas.width / 2, canvas.height - 10);
+    ctx.fillText(`Station (${unitSystem === 'metric' ? 'm' : 'ft'})`, canvas.width / 2, canvas.height - 10);
     
     ctx.save();
     ctx.translate(15, canvas.height / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.textAlign = 'center';
-    ctx.fillText('Elevation (m)', 0, 0);
+    ctx.fillText(`Elevation (${unitSystem === 'metric' ? 'm' : 'ft'})`, 0, 0);
     ctx.restore();
 
     // Draw channel bottom
@@ -162,7 +199,7 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ r
       // Label
       ctx.fillStyle = '#ef4444';
       ctx.textAlign = 'right';
-      ctx.fillText(`Critical Depth: ${criticalDepth.toFixed(3)} m`, canvas.width - padding.right, transformY(criticalDepth) - 10);
+      ctx.fillText(`Critical Depth: ${criticalDepth.toFixed(3)} ${unitSystem === 'metric' ? 'm' : 'ft'}`, canvas.width - padding.right, transformY(criticalDepth) - 10);
     }
 
     // Draw normal depth line
@@ -179,15 +216,22 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ r
       // Label
       ctx.fillStyle = '#10b981';
       ctx.textAlign = 'right';
-      ctx.fillText(`Normal Depth: ${normalDepth.toFixed(3)} m`, canvas.width - padding.right, transformY(normalDepth) - 10);
+      ctx.fillText(`Normal Depth: ${normalDepth.toFixed(3)} ${unitSystem === 'metric' ? 'm' : 'ft'}`, canvas.width - padding.right, transformY(normalDepth) - 10);
     }
 
     // Draw water surface
-    ctx.beginPath();
-    ctx.moveTo(transformX(results[0].station), transformY(results[0].depth));
+    const dataPoints = useStandardResults 
+      ? standardResults!.flowProfile.map(p => ({ station: p.x, depth: p.y, froudeNumber: p.froudeNumber }))
+      : results.map(r => ({ station: r.station, depth: r.depth, froudeNumber: r.froudeNumber }));
     
-    for (let i = 1; i < results.length; i++) {
-      ctx.lineTo(transformX(results[i].station), transformY(results[i].depth));
+    // Sort data points by station to ensure correct line drawing
+    dataPoints.sort((a, b) => a.station - b.station);
+    
+    ctx.beginPath();
+    ctx.moveTo(transformX(dataPoints[0].station), transformY(dataPoints[0].depth));
+    
+    for (let i = 1; i < dataPoints.length; i++) {
+      ctx.lineTo(transformX(dataPoints[i].station), transformY(dataPoints[i].depth));
     }
     
     ctx.strokeStyle = '#3b82f6';
@@ -195,26 +239,26 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ r
     ctx.stroke();
 
     // Fill water area
-    ctx.lineTo(transformX(results[results.length - 1].station), transformY(0));
-    ctx.lineTo(transformX(results[0].station), transformY(0));
+    ctx.lineTo(transformX(dataPoints[dataPoints.length - 1].station), transformY(0));
+    ctx.lineTo(transformX(dataPoints[0].station), transformY(0));
     ctx.closePath();
     ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
     ctx.fill();
 
     // Draw froude number indicators
-    results.forEach((result, i) => {
+    dataPoints.forEach((point, i) => {
       // Only draw for some points to avoid clutter
       if (i % 10 === 0) {
-        const x = transformX(result.station);
-        const y = transformY(result.depth);
+        const x = transformX(point.station);
+        const y = transformY(point.depth);
         
-        if (result.froudeNumber > 1) {
+        if (point.froudeNumber > 1) {
           // Supercritical flow - red indicator
           ctx.fillStyle = 'rgba(239, 68, 68, 0.7)';
           ctx.beginPath();
           ctx.arc(x, y, 4, 0, 2 * Math.PI);
           ctx.fill();
-        } else if (result.froudeNumber < 1) {
+        } else if (point.froudeNumber < 1) {
           // Subcritical flow - blue indicator
           ctx.fillStyle = 'rgba(59, 130, 246, 0.7)';
           ctx.beginPath();
@@ -229,6 +273,45 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ r
     ctx.textAlign = 'center';
     ctx.font = '16px Arial';
     ctx.fillText('Water Surface Profile', canvas.width / 2, padding.top);
+    
+    // Draw hydraulic jump if present in the standardized results
+    if (standardResults?.hydraulicJump?.occurs) {
+      const jump = standardResults.hydraulicJump;
+      const jumpStation = jump.station || 0;
+      
+      if (jumpStation >= minStation && jumpStation <= maxStation) {
+        const jumpX = transformX(jumpStation);
+        const upstreamY = transformY(jump.upstreamDepth || 0);
+        const downstreamY = transformY(jump.downstreamDepth || 0);
+        
+        // Draw vertical line representing the jump
+        ctx.beginPath();
+        ctx.moveTo(jumpX, upstreamY);
+        ctx.lineTo(jumpX, downstreamY);
+        ctx.strokeStyle = '#f59e0b'; // Amber color
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Draw arrow heads
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.moveTo(jumpX - 5, upstreamY + 5);
+        ctx.lineTo(jumpX, upstreamY);
+        ctx.lineTo(jumpX + 5, upstreamY + 5);
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.moveTo(jumpX - 5, downstreamY - 5);
+        ctx.lineTo(jumpX, downstreamY);
+        ctx.lineTo(jumpX + 5, downstreamY - 5);
+        ctx.fill();
+        
+        // Label
+        ctx.fillStyle = '#f59e0b';
+        ctx.textAlign = 'center';
+        ctx.fillText('Hydraulic Jump', jumpX, upstreamY - 10);
+      }
+    }
   };
 
   return (
@@ -281,8 +364,41 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ r
               <span className="ml-2 text-sm text-gray-700">Supercritical Flow (Fr &gt; 1)</span>
             </div>
           </div>
+          {standardResults?.hydraulicJump?.occurs && (
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-amber-500"></div>
+              <span className="ml-2 text-sm text-gray-700">Hydraulic Jump</span>
+            </div>
+          )}
         </div>
       </div>
+      
+      {/* Profile Information */}
+      {standardResults && (
+        <div className="mt-6 p-4 bg-gray-50 rounded-md">
+          <h4 className="text-md font-medium text-gray-900 mb-2">Profile Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <span className="text-sm font-medium">Profile Type: </span>
+              <span className="text-sm">{standardResults.profileType}</span>
+            </div>
+            <div>
+              <span className="text-sm font-medium">Channel Type: </span>
+              <span className="text-sm">{standardResults.channelType}</span>
+            </div>
+            {standardResults.hydraulicJump?.occurs && (
+              <div className="col-span-1 md:col-span-2">
+                <span className="text-sm font-medium">Hydraulic Jump: </span>
+                <span className="text-sm">
+                  Occurs at station {formatWithUnit(standardResults.hydraulicJump.station || 0, 'station', unitSystem, 2)}, 
+                  from depth {formatWithUnit(standardResults.hydraulicJump.upstreamDepth || 0, 'depth', unitSystem, 3)} 
+                  to {formatWithUnit(standardResults.hydraulicJump.downstreamDepth || 0, 'depth', unitSystem, 3)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       
       {/* Flow regime explanation */}
       <div className="mt-6 p-4 bg-gray-50 rounded-md">

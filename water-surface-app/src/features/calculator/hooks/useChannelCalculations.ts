@@ -6,19 +6,26 @@ import {
   WaterSurfaceProfileResults,
   ChannelParams,
   StandardCalculationResult,
-  convertFlowPointToStandardResult,
   ProfileType,
-  FlowRegime
+  FlowRegime,
+  DetailedWaterSurfaceResults
 } from '../types';
+
+// Import the calculation utilities
 import { 
-  calculateWaterSurfaceProfile as calculationUtil
+  calculateWaterSurfaceProfile as calculationUtil,
+  calculateDetailedProfile,
+  calculateProfileWithErrorHandling
 } from '../utils/hydraulics';
+
 import {
   calculateCriticalDepth
 } from '../utils/hydraulics/criticalFlow';
+
 import {
   calculateNormalDepth
 } from '../utils/hydraulics/normalFlow';
+
 import {
   calculateArea,
   calculateTopWidth,
@@ -42,7 +49,7 @@ export const useChannelCalculations = () => {
    * @param params Channel parameters
    * @returns Standardized calculation results
    */
-  const convertFlowPointsToResults = (
+  const convertFlowPointsToResults = useCallback((
     points: FlowDepthPoint[],
     params: ChannelParams
   ): CalculationResult[] => {
@@ -67,10 +74,11 @@ export const useChannelCalculations = () => {
         normalDepth: point.normalDepth
       };
     });
-  };
+  }, []);
 
   /**
    * Calculate the water surface profile for a given channel
+   * Legacy method that returns results in the old format for backward compatibility
    * 
    * @param params Channel parameters
    * @returns Promise with calculation results and hydraulic jump information
@@ -121,6 +129,69 @@ export const useChannelCalculations = () => {
       setError(errorMessage);
       throw error;
     }
+  }, [convertFlowPointsToResults]);
+
+  /**
+   * Run a detailed calculation that returns results using the new standardized types
+   * 
+   * @param params Channel parameters
+   * @returns Promise with standardized water surface profile results
+   */
+  const runDetailedCalculation = useCallback(async (
+    params: ChannelParams
+  ): Promise<WaterSurfaceProfileResults | null> => {
+    setIsCalculating(true);
+    setError(null);
+    
+    try {
+      // Call the detailed calculation function that returns standardized results
+      const result = calculateDetailedProfile(params);
+      
+      setIsCalculating(false);
+      
+      if (result.error) {
+        setError(result.error);
+        return null;
+      }
+      
+      return result.results || null;
+    } catch (error) {
+      setIsCalculating(false);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
+      return null;
+    }
+  }, []);
+
+  /**
+   * Calculate the water surface profile with error handling and standardized return type
+   * 
+   * @param params Channel parameters
+   * @returns Promise with standardized water surface profile results or null if error
+   */
+  const calculateProfileWithHandling = useCallback(async (
+    params: ChannelParams
+  ): Promise<WaterSurfaceProfileResults | null> => {
+    setIsCalculating(true);
+    setError(null);
+    
+    try {
+      const result = calculateProfileWithErrorHandling(params);
+      
+      setIsCalculating(false);
+      
+      if (result.error) {
+        setError(result.error);
+        return null;
+      }
+      
+      return result.results || null;
+    } catch (error) {
+      setIsCalculating(false);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
+      return null;
+    }
   }, []);
 
   /**
@@ -130,7 +201,9 @@ export const useChannelCalculations = () => {
    * @param params Channel parameters
    * @returns Promise with full water surface profile results
    */
-  const getRawWaterSurfaceProfile = useCallback(async (params: ChannelParams): Promise<WaterSurfaceProfileResults> => {
+  const getRawWaterSurfaceProfile = useCallback(async (
+    params: ChannelParams
+  ): Promise<WaterSurfaceProfileResults> => {
     setIsCalculating(true);
     setError(null);
     
@@ -181,10 +254,20 @@ export const useChannelCalculations = () => {
   }, []);
 
   return {
+    // Legacy calculation method for backward compatibility
     calculateWaterSurfaceProfile,
+    
+    // New standardized calculation methods
+    runDetailedCalculation,
+    calculateProfileWithHandling,
     getRawWaterSurfaceProfile,
+    
+    // Helper calculations
     getCriticalDepth,
     getNormalDepth,
+    convertFlowPointsToResults,
+    
+    // State
     isCalculating,
     error
   };
