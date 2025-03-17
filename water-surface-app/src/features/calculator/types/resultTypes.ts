@@ -1,3 +1,5 @@
+// src/features/calculator/types/resultTypes.ts
+
 /**
  * Unified Result Types
  * This file centralizes all calculation result types using a common hierarchy,
@@ -10,9 +12,13 @@ import {
     ChannelType, 
     UnitSystem,
     HydraulicJump,
-    ProfileType,
-    FlowRegime 
+    ProfileType as ProfileTypeEnum,
+    FlowRegime as FlowRegimeEnum 
   } from './index';
+
+// Use enum types without redefining them
+export type ProfileType = ProfileTypeEnum;
+export type FlowRegime = FlowRegimeEnum;
 
 /**
  * Base interface for a single calculation point result
@@ -45,7 +51,7 @@ export interface StandardCalculationResult extends BaseCalculationResult {
  */
 export interface DetailedCalculationResult extends StandardCalculationResult {
   shearStress?: number;      // Boundary shear stress
-  flowRegime?: FlowRegime;   // Flow regime classification
+  flowRegime?: FlowRegimeEnum;   // Flow regime classification
   frictionSlope?: number;    // Friction slope
   energyGradeLine?: number;  // Energy grade line elevation
   specificForce?: number;    // Specific force
@@ -70,11 +76,13 @@ export interface FlowDepthPoint {
  * Contains the minimum properties needed to represent a calculation
  */
 export interface BaseWaterSurfaceResults {
-  profileType: ProfileType;  // Profile classification
+  profileType: ProfileTypeEnum | string;  // Profile classification
   channelType: string;       // Channel slope classification (mild, steep, critical)
   criticalDepth: number;     // Critical depth for the channel and discharge
   normalDepth: number;       // Normal depth for the channel and discharge
   isChoking: boolean;        // Indicates if choking occurred
+  flowProfile: FlowDepthPoint[]; // Flow points from calculation
+  hydraulicJump?: HydraulicJump; // Hydraulic jump details, if any
 }
 
 /**
@@ -83,44 +91,36 @@ export interface BaseWaterSurfaceResults {
  */
 export interface StandardWaterSurfaceResults extends BaseWaterSurfaceResults {
   results: StandardCalculationResult[];  // Calculation results
-  hydraulicJump?: HydraulicJump;         // Hydraulic jump details, if any
 }
 
 /**
  * Detailed water surface profile results with additional analysis
  * Used for comprehensive reporting and advanced visualization
  */
-export interface DetailedWaterSurfaceResults extends StandardWaterSurfaceResults {
+export interface DetailedWaterSurfaceResults extends BaseWaterSurfaceResults {
   profileDescription: string;        // Human-readable profile description
   profileDetails: string;            // Detailed information about the profile
-  flowRegime: FlowRegime;            // Predominant flow regime
+  flowRegime: FlowRegimeEnum;        // Predominant flow regime
   executionTime?: number;            // Calculation time in milliseconds
   iterationCount?: number;           // Total number of iterations
   warnings?: string[];               // Any warnings during calculation
   
   // Detailed statistical analysis
-  stats?: {
-    minDepth: number;
-    maxDepth: number;
-    avgDepth: number;
-    minVelocity: number;
-    maxVelocity: number;
-    avgVelocity: number;
-    minFroude: number;
-    maxFroude: number;
-    avgFroude: number;
-    minEnergy: number;
-    maxEnergy: number;
-    avgEnergy: number;
-  };
+  stats?: ProfileStatistics;
 }
+
+/**
+ * The main WaterSurfaceProfileResults type used throughout the application
+ * Compatible with both standard and detailed formats
+ */
+export type WaterSurfaceProfileResults = BaseWaterSurfaceResults;
 
 /**
  * Type for calculation result with potential error
  * Used for error handling in calculation processes
  */
 export interface CalculationResultWithError {
-  results?: StandardWaterSurfaceResults;
+  results?: WaterSurfaceProfileResults;
   error?: string;
 }
 
@@ -144,7 +144,7 @@ export function hasError(result: CalculationResultWithError | DetailedCalculatio
  * Type guard to check if a result is a detailed result
  */
 export function isDetailedResult(
-  result: StandardWaterSurfaceResults | DetailedWaterSurfaceResults
+  result: WaterSurfaceProfileResults
 ): result is DetailedWaterSurfaceResults {
   return 'profileDescription' in result;
 }
@@ -178,27 +178,21 @@ export function convertFlowPointToStandardResult(
  * Creates standard water surface results from internal calculation data
  */
 export function createStandardResults(
-  flowPoints: FlowDepthPoint[],
-  profileType: ProfileType,
+  flowProfile: FlowDepthPoint[],
+  profileType: ProfileTypeEnum | string,
   channelType: string,
   criticalDepth: number,
   normalDepth: number,
   isChoking: boolean = false,
-  hydraulicJump?: HydraulicJump,
-  params?: ChannelParams
-): StandardWaterSurfaceResults {
-  // Convert flow points to standard results if params are provided
-  const results = params 
-    ? flowPoints.map(point => convertFlowPointToStandardResult(point, params))
-    : [] as StandardCalculationResult[];
-    
+  hydraulicJump?: HydraulicJump
+): WaterSurfaceProfileResults {
   return {
     profileType,
     channelType,
     criticalDepth,
     normalDepth,
     isChoking,
-    results,
+    flowProfile,
     hydraulicJump
   };
 }
@@ -207,15 +201,18 @@ export function createStandardResults(
  * Enhances standard results with detailed analysis
  */
 export function enhanceWithDetails(
-  standardResults: StandardWaterSurfaceResults,
-  details: Partial<Omit<DetailedWaterSurfaceResults, keyof StandardWaterSurfaceResults>>
+  standardResults: WaterSurfaceProfileResults,
+  details: Partial<Omit<DetailedWaterSurfaceResults, keyof WaterSurfaceProfileResults>>
 ): DetailedWaterSurfaceResults {
   return {
     ...standardResults,
     profileDescription: details.profileDescription || `${standardResults.profileType} Profile`,
     profileDetails: details.profileDetails || '',
-    flowRegime: details.flowRegime || FlowRegime.SUBCRITICAL,
-    ...details
+    flowRegime: details.flowRegime || FlowRegimeEnum.SUBCRITICAL,
+    stats: details.stats,
+    executionTime: details.executionTime,
+    iterationCount: details.iterationCount,
+    warnings: details.warnings
   };
 }
 
@@ -257,32 +254,32 @@ export interface ProfileStatistics {
 /**
  * Flow regime description options
  */
-export const FLOW_REGIME_DESCRIPTIONS: Record<FlowRegime, string> = {
-  [FlowRegime.SUBCRITICAL]: 'Subcritical Flow (Fr < 1)',
-  [FlowRegime.CRITICAL]: 'Critical Flow (Fr = 1)',
-  [FlowRegime.SUPERCRITICAL]: 'Supercritical Flow (Fr > 1)'
+export const FLOW_REGIME_DESCRIPTIONS: Record<FlowRegimeEnum, string> = {
+  [FlowRegimeEnum.SUBCRITICAL]: 'Subcritical Flow (Fr < 1)',
+  [FlowRegimeEnum.CRITICAL]: 'Critical Flow (Fr = 1)',
+  [FlowRegimeEnum.SUPERCRITICAL]: 'Supercritical Flow (Fr > 1)'
 };
 
 /**
  * Profile type descriptions
  */
-export const PROFILE_TYPE_DESCRIPTIONS: Record<ProfileType, string> = {
-  [ProfileType.M1]: 'M1 - Backwater Curve (Mild Slope)',
-  [ProfileType.M2]: 'M2 - Drawdown Curve (Mild Slope)',
-  [ProfileType.M3]: 'M3 - Rapidly Varied Flow (Mild Slope)',
-  [ProfileType.S1]: 'S1 - Backwater Curve (Steep Slope)',
-  [ProfileType.S2]: 'S2 - Drawdown Curve (Steep Slope)',
-  [ProfileType.S3]: 'S3 - Rapidly Varied Flow (Steep Slope)',
-  [ProfileType.C1]: 'C1 - Backwater Curve (Critical Slope)',
-  [ProfileType.C2]: 'C2 - Uniform Flow (Critical Slope)',
-  [ProfileType.C3]: 'C3 - Drawdown Curve (Critical Slope)',
-  [ProfileType.UNKNOWN]: 'Unknown Profile Type'
+export const PROFILE_TYPE_DESCRIPTIONS: Record<ProfileTypeEnum, string> = {
+  [ProfileTypeEnum.M1]: 'M1 - Backwater Curve (Mild Slope)',
+  [ProfileTypeEnum.M2]: 'M2 - Drawdown Curve (Mild Slope)',
+  [ProfileTypeEnum.M3]: 'M3 - Rapidly Varied Flow (Mild Slope)',
+  [ProfileTypeEnum.S1]: 'S1 - Backwater Curve (Steep Slope)',
+  [ProfileTypeEnum.S2]: 'S2 - Drawdown Curve (Steep Slope)',
+  [ProfileTypeEnum.S3]: 'S3 - Rapidly Varied Flow (Steep Slope)',
+  [ProfileTypeEnum.C1]: 'C1 - Backwater Curve (Critical Slope)',
+  [ProfileTypeEnum.C2]: 'C2 - Uniform Flow (Critical Slope)',
+  [ProfileTypeEnum.C3]: 'C3 - Drawdown Curve (Critical Slope)',
+  [ProfileTypeEnum.UNKNOWN]: 'Unknown Profile Type'
 };
 
 /**
  * Channel slope descriptions
  */
-export const CHANNEL_SLOPE_DESCRIPTIONS = {
+export const CHANNEL_SLOPE_DESCRIPTIONS: Record<string, string> = {
   'mild': 'Mild Slope (yn > yc)',
   'critical': 'Critical Slope (yn = yc)',
   'steep': 'Steep Slope (yn < yc)'

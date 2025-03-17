@@ -84,11 +84,18 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
   
   // Get slope description - prioritize standardized results if available
   const channelSlopeValue = standardResults?.channelType || channelSlope;
-  const channelSlopeDescription = CHANNEL_SLOPE_DESCRIPTIONS[channelSlopeValue as string] || 
-    "Channel Classification";
+  const channelSlopeDescription = 
+    // Safe access to channel slope description
+    channelSlopeValue && 
+    typeof channelSlopeValue === 'string' && 
+    (channelSlopeValue === 'mild' || channelSlopeValue === 'critical' || channelSlopeValue === 'steep') 
+      ? CHANNEL_SLOPE_DESCRIPTIONS[channelSlopeValue]
+      : "Channel Classification";
   
   // Additional profile details if available from standardized results
-  const profileDetails = standardResults?.profileDescription || "";
+  const profileDetails = standardResults && 'profileDescription' in standardResults 
+    ? standardResults.profileDescription 
+    : "";
   
   // Custom tooltip component
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -332,7 +339,7 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
         </p>
         
         {/* Display additional details from standardized results if available */}
-        {standardResults?.stats && (
+        {standardResults && 'stats' in standardResults && standardResults.stats && (
           <div className="mt-3 pt-3 border-t border-gray-200">
             <h5 className="text-sm font-medium text-gray-900 mb-1">Profile Statistics</h5>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-700">

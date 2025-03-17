@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChannelParams } from '../../stores/calculatorSlice';
+import { ChannelParams } from '../../types';
 import ChannelTypeSelector from './ChannelTypeSelector';
 import GeometryInputs from './GeometryInputs';
 import FlowInputs from './FlowInputs';

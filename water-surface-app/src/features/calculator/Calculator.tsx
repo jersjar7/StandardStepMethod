@@ -22,6 +22,7 @@ import ProfileVisualization from './components/ProfileVisualization';
 import CrossSectionView from './components/CrossSectionView';
 import WaterSurfaceVisualization from './components/WaterSurfaceVisualization';
 import CalculatorTabs, { TabType } from './components/CalculatorTabs';
+import CalculationControls from './components/CalculationControls';
 import ExportMenu from './components/ExportMenu';
 
 // Import hydraulics utilities and hooks
@@ -148,30 +149,31 @@ const Calculator: React.FC = () => {
       {/* Tab content */}
       <div>
         {activeTab === 'input' && (
-          <ChannelForm 
-            channelParams={channelParams}
-            isCalculating={isCalculating}
-            onChannelTypeChange={handleChannelTypeChange}
-            onParamsChange={handleChannelParamsChange}
-            onCalculate={handleCalculate}
-            onReset={handleReset}
-          />
+          <div>
+            <ChannelForm 
+              channelParams={channelParams}
+              isCalculating={isCalculating}
+              onChannelTypeChange={handleChannelTypeChange}
+              onParamsChange={handleChannelParamsChange}
+              onCalculate={handleCalculate}
+              onReset={handleReset}
+            />
+          </div>
         )}
         
         {activeTab === 'results' && results.length > 0 && (
           <div id="results-section">
             <div className="flex justify-between mb-4">
               <h2 className="text-xl font-semibold">Calculation Results</h2>
+              {/* Modified to match ExportMenu props interface */}
               <ExportMenu 
                 results={results} 
                 channelParams={channelParams} 
-                standardResults={detailedResults}
               />
             </div>
             
             <ResultsTable 
               results={results} 
-              standardResults={detailedResults}
               hydraulicJump={hydraulicJump}
               onSelectResult={handleStationSelect}
             />
@@ -222,7 +224,6 @@ const Calculator: React.FC = () => {
             <CrossSectionView
               selectedResult={selectedResult}
               channelType={channelParams.channelType}
-              standardResults={detailedResults}
             />
           </div>
         )}
@@ -230,7 +231,6 @@ const Calculator: React.FC = () => {
         {activeTab === 'water-surface' && results.length > 0 && (
           <WaterSurfaceVisualization 
             results={getFilteredResults(200)} 
-            standardResults={detailedResults}
           />
         )}
       </div>

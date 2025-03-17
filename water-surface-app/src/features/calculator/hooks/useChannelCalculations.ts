@@ -5,10 +5,10 @@ import {
   FlowDepthPoint,
   WaterSurfaceProfileResults,
   ChannelParams,
-  StandardCalculationResult,
   ProfileType,
   FlowRegime,
-  DetailedWaterSurfaceResults
+  DetailedWaterSurfaceResults,
+  CalculationResultWithError
 } from '../types';
 
 // Import the calculation utilities

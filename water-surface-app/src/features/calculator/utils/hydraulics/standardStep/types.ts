@@ -1,3 +1,5 @@
+// src/features/calculator/utils/hydraulics/standardStep/types.ts
+
 /**
  * Types for standard step method calculations
  * Imports shared types from core types and defines specialized types
@@ -23,9 +25,6 @@ export type {
   ProfileType,
   FlowRegime
 };
-
-// Re-export enums
-export { ProfileType, FlowRegime };
 
 /**
  * Internal calculation parameters for the standard step method

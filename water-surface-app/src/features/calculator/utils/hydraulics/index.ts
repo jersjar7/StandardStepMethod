@@ -19,10 +19,10 @@ import {
   FlowRegime,
   HydraulicJump,
   WaterSurfaceProfileResults,
-  StandardCalculationResult,
-  DetailedWaterSurfaceResults,
   CalculationResultWithError,
-  ProfileStatistics
+  ProfileStatistics,
+  DetailedWaterSurfaceResults,
+  enhanceWithDetails
 } from '../../types';
 
 // Import core calculation components
@@ -66,25 +66,14 @@ import {
   simplifyProfile
 } from './standardStep/profileUtils';
 
-import { 
-  StepCalculationParams,
-  ProfileCalculationParams,
-  CalculationPoint
-} from './standardStep/types';
-
 import { calculateCriticalDepth } from './criticalFlow';
 import { calculateNormalDepth } from './normalFlow';
 
 // Export types for use in other components
 export type { 
   FlowDepthPoint, 
-  StepCalculationParams,
-  ProfileCalculationParams,
-  CalculationPoint,
   FlowTransition
 };
-
-export { ProfileType, FlowRegime };
 
 /**
  * Main export for water surface profile calculation
@@ -182,14 +171,28 @@ export function calculateDetailedProfile(
     const profileDescription = getProfileDescription(results.flowProfile, params);
     const stats = calculateProfileStatistics(results.flowProfile);
     
+    // Determine flow regime based on Froude numbers
+    let predominantFlowRegime = FlowRegime.SUBCRITICAL;
+    let subcriticalCount = 0;
+    let supercriticalCount = 0;
+    
+    results.flowProfile.forEach(point => {
+      if (point.froudeNumber < 1) subcriticalCount++;
+      else supercriticalCount++;
+    });
+    
+    if (supercriticalCount > subcriticalCount) {
+      predominantFlowRegime = FlowRegime.SUPERCRITICAL;
+    }
+    
     // Return enhanced results with additional information
     return { 
-      results: {
-        ...results,
+      results: enhanceWithDetails(results, {
         profileDescription: profileDescription.description,
         profileDetails: profileDescription.details,
-        stats: stats
-      } as DetailedWaterSurfaceResults
+        stats,
+        flowRegime: predominantFlowRegime
+      })
     };
   } catch (error) {
     return { 
