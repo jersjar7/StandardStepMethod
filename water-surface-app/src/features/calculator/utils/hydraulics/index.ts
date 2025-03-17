@@ -12,7 +12,7 @@
  * to friction and other factors.
  */
 
-import { ChannelParams, WaterSurfaceProfileResults } from '../../types';
+import { ChannelParams, WaterSurfaceProfileResults, ProfileStatistics } from '../../types';
 
 // Import core calculation components
 import { 
@@ -45,7 +45,8 @@ import {
   determineFlowRegime,
   classifyProfileByTransitions,
   findCriticalDepthLocation,
-  findNormalDepthLocation
+  findNormalDepthLocation,
+  FlowTransition
 } from './standardStep/transitionDetector';
 
 import {
@@ -63,8 +64,6 @@ import {
   FlowRegime
 } from './standardStep/types';
 
-import { FlowTransition } from './standardStep/transitionDetector';
-import { ProfileStatistics } from '../../types';
 import { calculateCriticalDepth } from './criticalFlow';
 import { calculateNormalDepth } from './normalFlow';
 
@@ -73,12 +72,28 @@ export type {
   FlowDepthPoint, 
   StepCalculationParams,
   ProfileCalculationParams,
-  CalculationPoint
+  CalculationPoint,
+  FlowTransition
 };
 
 export { ProfileType, FlowRegime };
-export type { FlowTransition };
-export type { ProfileStatistics };
+
+/**
+ * Extended result interface that includes additional analysis properties
+ */
+export interface ExtendedWaterSurfaceResults extends WaterSurfaceProfileResults {
+  profileDescription?: string;
+  profileDetails?: string;
+  stats?: ProfileStatistics;
+}
+
+/**
+ * Result type for profile calculation with error handling
+ */
+export interface ProfileCalculationResult {
+  results?: ExtendedWaterSurfaceResults;
+  error?: string;
+}
 
 /**
  * Main export for water surface profile calculation
@@ -141,7 +156,7 @@ export {
  */
 export function calculateProfileWithErrorHandling(
   params: ChannelParams
-): { results?: WaterSurfaceProfileResults; error?: string } {
+): ProfileCalculationResult {
   try {
     // Validate parameters
     const validation = validateCalculationParameters(params);
@@ -156,7 +171,7 @@ export function calculateProfileWithErrorHandling(
     const profileDescription = getProfileDescription(results.flowProfile, params);
     const profileStats = calculateProfileStatistics(results.flowProfile);
     
-    // Return results with additional information
+    // Return extended results with additional information
     return { 
       results: {
         ...results,
@@ -179,7 +194,7 @@ export function calculateProfileWithErrorHandling(
  */
 export function batchCalculateProfiles(
   paramsArray: ChannelParams[]
-): { results?: WaterSurfaceProfileResults; error?: string }[] {
+): ProfileCalculationResult[] {
   return paramsArray.map(params => calculateProfileWithErrorHandling(params));
 }
 
