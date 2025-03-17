@@ -4,14 +4,15 @@ import {
   HydraulicJump,
   FlowDepthPoint,
   WaterSurfaceProfileResults,
-  ChannelParams
+  ChannelParams,
+  StandardCalculationResult,
+  convertFlowPointToStandardResult,
+  ProfileType,
+  FlowRegime
 } from '../types';
 import { 
-  convertToStandardHydraulicJump 
-} from '../types/hydraulicJumpTypes';
-import { 
   calculateWaterSurfaceProfile as calculationUtil
-} from '../utils/hydraulics/standardStep/profileCalculator';
+} from '../utils/hydraulics';
 import {
   calculateCriticalDepth
 } from '../utils/hydraulics/criticalFlow';
@@ -45,19 +46,27 @@ export const useChannelCalculations = () => {
     points: FlowDepthPoint[],
     params: ChannelParams
   ): CalculationResult[] => {
-    return points.map(point => ({
-      station: point.x,
-      depth: point.y,
-      velocity: point.velocity,
-      area: calculateArea(point.y, params),
-      topWidth: calculateTopWidth(point.y, params),
-      wetPerimeter: calculateWetPerimeter(point.y, params),
-      hydraulicRadius: calculateHydraulicRadius(point.y, params),
-      energy: point.specificEnergy,
-      froudeNumber: point.froudeNumber,
-      criticalDepth: point.criticalDepth,
-      normalDepth: point.normalDepth
-    }));
+    return points.map(point => {
+      // Use the topWidth and area calculations from the geometry utilities
+      const area = calculateArea(point.y, params);
+      const topWidth = calculateTopWidth(point.y, params);
+      const wetPerimeter = calculateWetPerimeter(point.y, params);
+      const hydraulicRadius = calculateHydraulicRadius(point.y, params);
+      
+      return {
+        station: point.x,
+        depth: point.y,
+        velocity: point.velocity,
+        area,
+        topWidth,
+        wetPerimeter,
+        hydraulicRadius,
+        energy: point.specificEnergy,
+        froudeNumber: point.froudeNumber,
+        criticalDepth: point.criticalDepth,
+        normalDepth: point.normalDepth
+      };
+    });
   };
 
   /**
@@ -69,6 +78,8 @@ export const useChannelCalculations = () => {
   const calculateWaterSurfaceProfile = useCallback(async (params: ChannelParams): Promise<{
     results: CalculationResult[];
     hydraulicJump: HydraulicJump;
+    profileType: ProfileType;
+    flowRegime: FlowRegime;
   }> => {
     setIsCalculating(true);
     setError(null);
@@ -81,14 +92,54 @@ export const useChannelCalculations = () => {
       // Convert from the hydraulics utility format to our application format
       const results = convertFlowPointsToResults(output.flowProfile, params);
       
-      // Convert hydraulic jump format using the standardized conversion function
+      // Extract hydraulic jump, profile type, and determine flow regime
       const hydraulicJump = output.hydraulicJump || { occurs: false };
+      const profileType = output.profileType as ProfileType;
+      
+      // Determine flow regime based on Froude numbers
+      let subcriticalCount = 0;
+      let supercriticalCount = 0;
+      
+      output.flowProfile.forEach(point => {
+        if (point.froudeNumber < 1) subcriticalCount++;
+        else supercriticalCount++;
+      });
+      
+      const flowRegime = subcriticalCount > supercriticalCount ? 
+        FlowRegime.SUBCRITICAL : FlowRegime.SUPERCRITICAL;
       
       setIsCalculating(false);
       return {
         results,
-        hydraulicJump
+        hydraulicJump,
+        profileType,
+        flowRegime
       };
+    } catch (error) {
+      setIsCalculating(false);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
+      throw error;
+    }
+  }, []);
+
+  /**
+   * Get the full water surface profile results without conversion
+   * Useful for advanced visualizations and analysis
+   * 
+   * @param params Channel parameters
+   * @returns Promise with full water surface profile results
+   */
+  const getRawWaterSurfaceProfile = useCallback(async (params: ChannelParams): Promise<WaterSurfaceProfileResults> => {
+    setIsCalculating(true);
+    setError(null);
+    
+    try {
+      // Call the imported utility function to calculate the water surface profile
+      const output = calculationUtil(params);
+      
+      setIsCalculating(false);
+      return output;
     } catch (error) {
       setIsCalculating(false);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -131,9 +182,12 @@ export const useChannelCalculations = () => {
 
   return {
     calculateWaterSurfaceProfile,
+    getRawWaterSurfaceProfile,
     getCriticalDepth,
     getNormalDepth,
     isCalculating,
     error
   };
 };
+
+export default useChannelCalculations;

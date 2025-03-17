@@ -14,15 +14,15 @@
 
 import { 
   ChannelParams, 
-  StandardWaterSurfaceResults,
-  DetailedWaterSurfaceResults,
-  CalculationResultWithError,
   FlowDepthPoint,
+  HydraulicJump,
   ProfileType,
   FlowRegime,
+  WaterSurfaceProfileResults,
+  DetailedWaterSurfaceResults,
+  CalculationResultWithError,
   StandardCalculationResult,
-  createStandardResults,
-  enhanceWithDetails
+  ProfileStatistics
 } from '../../../types';
 
 // Import core calculation components
@@ -56,7 +56,8 @@ import {
   determineFlowRegime,
   classifyProfileByTransitions,
   findCriticalDepthLocation,
-  findNormalDepthLocation
+  findNormalDepthLocation,
+  FlowTransition
 } from './transitionDetector';
 
 import {
@@ -69,12 +70,8 @@ import {
 import { 
   StepCalculationParams,
   ProfileCalculationParams,
-  CalculationPoint,
-  FlowTransition
+  CalculationPoint
 } from './types';
-
-import { calculateCriticalDepth } from '../criticalFlow';
-import { calculateNormalDepth } from '../normalFlow';
 
 // Export types for use in other components
 export type { 
@@ -95,22 +92,8 @@ export { ProfileType, FlowRegime };
  */
 export function calculateWaterSurfaceProfile(
   params: ChannelParams
-): StandardWaterSurfaceResults {
-  const baseResults = calculateBaseWaterSurfaceProfile(params);
-  
-  // Convert internal flow points to standard calculation results
-  const standardResults = createStandardResults(
-    baseResults.flowProfile,
-    baseResults.profileType as ProfileType,
-    baseResults.channelType,
-    baseResults.criticalDepth,
-    baseResults.normalDepth,
-    baseResults.isChoking,
-    baseResults.hydraulicJump,
-    params
-  );
-  
-  return standardResults;
+): WaterSurfaceProfileResults {
+  return calculateBaseWaterSurfaceProfile(params);
 }
 
 /**
@@ -169,21 +152,9 @@ export function calculateProfileWithErrorHandling(
     }
     
     // Calculate profile
-    const baseResults = calculateBaseWaterSurfaceProfile(params);
+    const results = calculateWaterSurfaceProfile(params);
     
-    // Create standard results
-    const standardResults = createStandardResults(
-      baseResults.flowProfile,
-      baseResults.profileType as ProfileType,
-      baseResults.channelType,
-      baseResults.criticalDepth,
-      baseResults.normalDepth,
-      baseResults.isChoking,
-      baseResults.hydraulicJump,
-      params
-    );
-    
-    return { results: standardResults };
+    return { results };
   } catch (error) {
     return { 
       error: error instanceof Error ? error.message : 'Unknown calculation error' 
@@ -194,26 +165,27 @@ export function calculateProfileWithErrorHandling(
 /**
  * Calculate detailed water surface profile with additional analysis
  * @param params Channel parameters
- * @returns Detailed water surface profile calculation results or error
+ * @returns Detailed water surface profile results or error
  */
 export function calculateDetailedProfile(
   params: ChannelParams
 ): { results?: DetailedWaterSurfaceResults; error?: string } {
   try {
     // First get standard results
-    const baseResults = calculateWaterSurfaceProfile(params);
+    const results = calculateWaterSurfaceProfile(params);
     
     // Perform additional analysis
-    const profileDescription = getProfileDescription(baseResults.results, params);
-    const profileStats = calculateProfileStatistics(baseResults.results);
+    const profileDescription = getProfileDescription(results.flowProfile, params);
+    const profileStats = calculateProfileStatistics(results.flowProfile);
     
-    // Enhance with details
-    const detailedResults = enhanceWithDetails(baseResults, {
+    // Return enhanced results
+    const detailedResults: DetailedWaterSurfaceResults = {
+      ...results,
       profileDescription: profileDescription.description,
       profileDetails: profileDescription.details,
-      flowRegime: determineOverallFlowRegime(baseResults.results),
+      flowRegime: determineOverallFlowRegime(results),
       stats: profileStats
-    });
+    };
     
     return { results: detailedResults };
   } catch (error) {
@@ -225,16 +197,23 @@ export function calculateDetailedProfile(
 
 /**
  * Determine the overall flow regime based on calculation results
+ * @param results Water surface profile results
+ * @returns Predominant flow regime
  */
-function determineOverallFlowRegime(results: StandardCalculationResult[]): FlowRegime {
+function determineOverallFlowRegime(results: WaterSurfaceProfileResults): FlowRegime {
+  // Check if flowProfile is available
+  if (!results.flowProfile || results.flowProfile.length === 0) {
+    return FlowRegime.SUBCRITICAL; // Default if no data
+  }
+  
   // Count different flow regimes
   let subcriticalCount = 0;
   let supercriticalCount = 0;
   let criticalCount = 0;
   
-  results.forEach(result => {
-    if (result.froudeNumber < 0.95) subcriticalCount++;
-    else if (result.froudeNumber > 1.05) supercriticalCount++;
+  results.flowProfile.forEach(point => {
+    if (point.froudeNumber < 0.95) subcriticalCount++;
+    else if (point.froudeNumber > 1.05) supercriticalCount++;
     else criticalCount++;
   });
   
@@ -260,9 +239,9 @@ export function batchCalculateProfiles(
 }
 
 /**
- * Calculate critical and normal depth profiles for comparison
+ * Calculate reference profiles for critical and normal depths
  * @param params Channel parameters
- * @returns Object with critical and normal profiles
+ * @returns Critical and normal depth profiles
  */
 export function calculateReferenceProfiles(
   params: ChannelParams
@@ -270,49 +249,9 @@ export function calculateReferenceProfiles(
   criticalProfile: FlowDepthPoint[]; 
   normalProfile: FlowDepthPoint[]; 
 } {
-  // Get basic depths
-  const criticalDepth = calculateCriticalDepth(params);
-  const normalDepth = calculateNormalDepth(params);
-  
-  // Create uniform station spacing
-  const numPoints = 100;
-  const step = params.length / (numPoints - 1);
-  
-  // Generate profiles
-  const criticalProfile: FlowDepthPoint[] = [];
-  const normalProfile: FlowDepthPoint[] = [];
-  
-  for (let i = 0; i < numPoints; i++) {
-    const station = i * step;
-    
-    // Calculate properties at critical depth
-    const criticalProps = calculatePropertiesAtDepth(criticalDepth, params);
-    
-    // Calculate properties at normal depth
-    const normalProps = calculatePropertiesAtDepth(normalDepth, params);
-    
-    criticalProfile.push({
-      x: station,
-      y: criticalDepth,
-      velocity: criticalProps.velocity,
-      froudeNumber: 1.0, // By definition, Fr = 1 at critical depth
-      specificEnergy: criticalProps.specificEnergy,
-      criticalDepth,
-      normalDepth
-    });
-    
-    normalProfile.push({
-      x: station,
-      y: normalDepth,
-      velocity: normalProps.velocity,
-      froudeNumber: normalProps.froudeNumber,
-      specificEnergy: normalProps.specificEnergy,
-      criticalDepth,
-      normalDepth
-    });
-  }
-  
-  return { criticalProfile, normalProfile };
+  // Implementation is provided in hydraulics/index.ts
+  // This re-export is for consistency in the API
+  throw new Error("Not implemented at this level. Use the method from hydraulics/index.ts");
 }
 
 /**
@@ -325,23 +264,11 @@ export function configureStandardStepCalculation(options: {
   maxIterations?: number;
   convergenceTolerance?: number;
   useNewtonRaphson?: boolean;
-}) {
-  return (params: ChannelParams): StandardWaterSurfaceResults => {
+}): (params: ChannelParams) => WaterSurfaceProfileResults {
+  return (params: ChannelParams): WaterSurfaceProfileResults => {
     // Apply options to calculation
     if (options.resolution) {
-      const baseResults = calculateHighResolutionProfile(params, options.resolution);
-      
-      // Convert to standard results
-      return createStandardResults(
-        baseResults.flowProfile,
-        baseResults.profileType as ProfileType,
-        baseResults.channelType,
-        baseResults.criticalDepth,
-        baseResults.normalDepth,
-        baseResults.isChoking,
-        baseResults.hydraulicJump,
-        params
-      );
+      return calculateHighResolutionProfile(params, options.resolution);
     }
     
     // Default calculation

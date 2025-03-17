@@ -12,11 +12,22 @@
  * to friction and other factors.
  */
 
-import { ChannelParams, WaterSurfaceProfileResults, ProfileStatistics } from '../../types';
+import { 
+  ChannelParams, 
+  FlowDepthPoint, 
+  ProfileType, 
+  FlowRegime,
+  HydraulicJump,
+  WaterSurfaceProfileResults,
+  StandardCalculationResult,
+  DetailedWaterSurfaceResults,
+  CalculationResultWithError,
+  ProfileStatistics
+} from '../../types';
 
 // Import core calculation components
 import { 
-  calculateWaterSurfaceProfile, 
+  calculateWaterSurfaceProfile as calculateBaseWaterSurfaceProfile, 
   calculateHighResolutionProfile,
   calculateBidirectionalProfile,
   determineProfileType,
@@ -56,12 +67,9 @@ import {
 } from './standardStep/profileUtils';
 
 import { 
-  FlowDepthPoint, 
   StepCalculationParams,
   ProfileCalculationParams,
-  CalculationPoint,
-  ProfileType,
-  FlowRegime
+  CalculationPoint
 } from './standardStep/types';
 
 import { calculateCriticalDepth } from './criticalFlow';
@@ -79,33 +87,17 @@ export type {
 export { ProfileType, FlowRegime };
 
 /**
- * Extended result interface that includes additional analysis properties
- */
-export interface ExtendedWaterSurfaceResults extends WaterSurfaceProfileResults {
-  profileDescription?: string;
-  profileDetails?: string;
-  stats?: ProfileStatistics;
-}
-
-/**
- * Result type for profile calculation with error handling
- */
-export interface ProfileCalculationResult {
-  results?: ExtendedWaterSurfaceResults;
-  error?: string;
-}
-
-/**
  * Main export for water surface profile calculation
  * This is the primary function that should be used by the application
  * 
  * @param params Channel parameters including geometry, flow, and roughness
  * @returns Complete water surface profile calculation results
  */
-export function calculateStandardStepProfile(
+export function calculateWaterSurfaceProfile(
   params: ChannelParams
 ): WaterSurfaceProfileResults {
-  return calculateWaterSurfaceProfile(params);
+  // Call the base implementation
+  return calculateBaseWaterSurfaceProfile(params);
 }
 
 /**
@@ -113,7 +105,6 @@ export function calculateStandardStepProfile(
  */
 export {
   // Main calculation functions
-  calculateWaterSurfaceProfile,
   calculateHighResolutionProfile,
   calculateBidirectionalProfile,
   
@@ -156,7 +147,7 @@ export {
  */
 export function calculateProfileWithErrorHandling(
   params: ChannelParams
-): ProfileCalculationResult {
+): CalculationResultWithError {
   try {
     // Validate parameters
     const validation = validateCalculationParameters(params);
@@ -167,18 +158,38 @@ export function calculateProfileWithErrorHandling(
     // Calculate profile
     const results = calculateWaterSurfaceProfile(params);
     
+    return { results };
+  } catch (error) {
+    return { 
+      error: error instanceof Error ? error.message : 'Unknown calculation error' 
+    };
+  }
+}
+
+/**
+ * Calculate detailed water surface profile with additional analysis
+ * @param params Channel parameters
+ * @returns Detailed water surface profile results or error
+ */
+export function calculateDetailedProfile(
+  params: ChannelParams
+): { results?: DetailedWaterSurfaceResults; error?: string } {
+  try {
+    // First get standard results
+    const results = calculateWaterSurfaceProfile(params);
+    
     // Perform additional analysis
     const profileDescription = getProfileDescription(results.flowProfile, params);
-    const profileStats = calculateProfileStatistics(results.flowProfile);
+    const stats = calculateProfileStatistics(results.flowProfile);
     
-    // Return extended results with additional information
+    // Return enhanced results with additional information
     return { 
       results: {
         ...results,
         profileDescription: profileDescription.description,
         profileDetails: profileDescription.details,
-        stats: profileStats
-      }
+        stats: stats
+      } as DetailedWaterSurfaceResults
     };
   } catch (error) {
     return { 
@@ -194,7 +205,7 @@ export function calculateProfileWithErrorHandling(
  */
 export function batchCalculateProfiles(
   paramsArray: ChannelParams[]
-): ProfileCalculationResult[] {
+): CalculationResultWithError[] {
   return paramsArray.map(params => calculateProfileWithErrorHandling(params));
 }
 
@@ -270,8 +281,6 @@ export function configureStandardStepCalculation(options: {
     if (options.resolution) {
       return calculateHighResolutionProfile(params, options.resolution);
     }
-    
-    // If using Newton-Raphson method, would need to customize the step calculator
     
     // Default calculation
     return calculateWaterSurfaceProfile(params);

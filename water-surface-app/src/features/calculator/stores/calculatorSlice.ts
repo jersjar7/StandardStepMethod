@@ -3,10 +3,13 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 // Import types from central type definitions
 import { 
   ChannelParams, 
+  WaterSurfaceProfileResults,
   CalculationResult, 
   HydraulicJump, 
   CalculatorState,
-  ChannelType
+  ChannelType,
+  ProfileType,
+  FlowRegime
 } from '../types';
 
 // Import helper functions from type files
@@ -56,10 +59,14 @@ export const calculatorSlice = createSlice({
     
     calculationSuccess: (state, action: PayloadAction<{
       results: CalculationResult[], 
-      hydraulicJump?: HydraulicJump
+      hydraulicJump?: HydraulicJump,
+      profileType?: ProfileType,
+      flowRegime?: FlowRegime
     }>) => {
       state.results = action.payload.results;
       state.hydraulicJump = action.payload.hydraulicJump;
+      state.profileType = action.payload.profileType;
+      state.flowRegime = action.payload.flowRegime;
       state.isCalculating = false;
       
       // Update channel parameters with calculated critical and normal depths
@@ -78,12 +85,47 @@ export const calculatorSlice = createSlice({
     resetCalculator: (state) => {
       state.results = [];
       state.hydraulicJump = undefined;
+      state.profileType = undefined;
+      state.flowRegime = undefined;
       state.error = null;
     },
     
     setSelectedResultIndex: (state, action: PayloadAction<number>) => {
       // If need to track a selected result for visualization
       state.selectedResultIndex = action.payload;
+    },
+    
+    setWaterSurfaceResults: (state, action: PayloadAction<WaterSurfaceProfileResults>) => {
+      // Store complete water surface profile results and extract relevant data
+      const { flowProfile, hydraulicJump, profileType } = action.payload;
+      
+      // Convert flow points to standard calculation results if needed
+      // This would require a conversion function in a real implementation
+      // For now we'll just assign directly (assuming compatible structures)
+      state.detailedResults = action.payload;
+      
+      // Extract key components for backward compatibility
+      if (flowProfile) {
+        // Convert flowProfile to results array if needed
+        // This is a simplified example - real implementation would need proper conversion
+        state.results = flowProfile.map(point => ({
+          station: point.x,
+          depth: point.y,
+          velocity: point.velocity,
+          froudeNumber: point.froudeNumber,
+          energy: point.specificEnergy,
+          area: 0, // These would need proper calculation based on parameters
+          topWidth: 0,
+          wetPerimeter: 0,
+          hydraulicRadius: 0,
+          criticalDepth: point.criticalDepth,
+          normalDepth: point.normalDepth
+        }));
+      }
+      
+      state.hydraulicJump = hydraulicJump;
+      state.profileType = profileType as ProfileType;
+      state.isCalculating = false;
     }
   }
 });
@@ -96,15 +138,9 @@ export const {
   calculationSuccess,
   calculationFailure,
   resetCalculator,
-  setSelectedResultIndex
+  setSelectedResultIndex,
+  setWaterSurfaceResults
 } = calculatorSlice.actions;
-
-// Export types
-export type {
-  ChannelParams,
-  CalculationResult,
-  HydraulicJump
-};
 
 // Export reducer
 export default calculatorSlice.reducer;

@@ -12,10 +12,9 @@ import {
   ChannelSlope,
   ProfileType,
   FlowRegime,
-  StandardWaterSurfaceResults,
-  StandardCalculationResult,
-  ProfileStatistics
-} from '../../../../types';
+  ProfileStatistics,
+  WaterSurfaceProfileResults
+} from '../../../types';
 
 // Re-export types from core definition that are used in this module
 export type {
@@ -109,7 +108,7 @@ export const DEFAULT_STANDARD_STEP_OPTIONS: StandardStepOptions = {
  * Result from a standard step calculation with detailed metadata
  * This extends the standard result with calculation details
  */
-export interface DetailedStandardStepResult extends StandardWaterSurfaceResults {
+export interface DetailedStandardStepResult extends WaterSurfaceProfileResults {
   executionTime?: number;       // Calculation time in milliseconds
   iterationCount?: number;      // Total number of iterations
   convergencePoints?: number;   // Number of points that converged

@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
-import { CalculationResult, HydraulicJump, UnitSystem } from '../types';
+import { 
+  CalculationResult, 
+  HydraulicJump, 
+  UnitSystem,
+  StandardCalculationResult,
+  WaterSurfaceProfileResults,
+  FlowRegime
+} from '../types';
 import { getFlowRegimeDescription } from '../stores/types/resultTypes';
 import { formatWithUnit, getParameterLabels } from '../../../utils/formatters';
 
 interface ResultsTableProps {
-  results: CalculationResult[];
+  // Support both the legacy results array and the new standardized results
+  results: CalculationResult[] | StandardCalculationResult[];
+  standardResults?: WaterSurfaceProfileResults;
   hydraulicJump?: HydraulicJump;
   unitSystem?: UnitSystem;
   onSelectResult?: (index: number) => void;
@@ -12,6 +21,7 @@ interface ResultsTableProps {
 
 const ResultsTable: React.FC<ResultsTableProps> = ({ 
   results, 
+  standardResults,
   hydraulicJump,
   unitSystem = 'metric',
   onSelectResult 
@@ -21,6 +31,9 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
   
   // Get parameter labels with proper units
   const labels = getParameterLabels(unitSystem);
+  
+  // Use hydraulic jump from standardResults if available
+  const jumpInfo = standardResults?.hydraulicJump || hydraulicJump;
   
   // Calculate the total number of pages
   const totalPages = Math.ceil(results.length / resultsPerPage);
@@ -65,6 +78,9 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
         <h3 className="text-lg font-medium text-gray-900">Calculation Results</h3>
         <p className="mt-1 text-sm text-gray-600">
           Water surface profile calculation results showing station, depth, velocity, and other hydraulic parameters.
+          {standardResults?.profileType && (
+            <span className="ml-2 font-medium">{standardResults.profileType}</span>
+          )}
         </p>
       </div>
       
@@ -179,6 +195,11 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
             <span className="text-sm font-medium text-gray-500">
               Total Results: {results.length}
             </span>
+            {standardResults?.profileType && (
+              <span className="ml-4 text-sm font-medium text-gray-500">
+                Profile Type: {standardResults.profileType}
+              </span>
+            )}
           </div>
           
           {results.length > 0 && (
@@ -197,12 +218,12 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
       </div>
       
       {/* Hydraulic Jump Information */}
-      {hydraulicJump?.occurs && (
+      {jumpInfo?.occurs && (
         <div className="px-6 py-4 bg-yellow-50 border-t border-yellow-200">
           <h4 className="text-sm font-medium text-yellow-800">Hydraulic Jump Detected</h4>
           <p className="mt-1 text-sm text-yellow-700">
-            A hydraulic jump occurs at station {formatWithUnit(hydraulicJump.station || 0, 'station', unitSystem, 2)}.
-            The water depth changes from {formatWithUnit(hydraulicJump.upstreamDepth || 0, 'depth', unitSystem, 3)} to {formatWithUnit(hydraulicJump.downstreamDepth || 0, 'depth', unitSystem, 3)}.
+            A hydraulic jump occurs at station {formatWithUnit(jumpInfo.station || 0, 'station', unitSystem, 2)}.
+            The water depth changes from {formatWithUnit(jumpInfo.upstreamDepth || 0, 'depth', unitSystem, 3)} to {formatWithUnit(jumpInfo.downstreamDepth || 0, 'depth', unitSystem, 3)}.
           </p>
         </div>
       )}

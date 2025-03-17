@@ -3,9 +3,15 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   updateChannelParams,
   setChannelType,
+  setWaterSurfaceResults
 } from './stores/calculatorSlice';
 import { RootState } from '../../stores';
-import { ProfileType } from './types';
+import { 
+  ProfileType, 
+  ChannelType, 
+  WaterSurfaceProfileResults,
+  FlowRegime
+} from './types';
 
 // Import components
 import ChannelForm from './components/ChannelForm/ChannelForm';
@@ -25,15 +31,24 @@ const Calculator: React.FC = () => {
   const {
     channelParams,
     results,
+    detailedResults, // New property for standardized results
     isCalculating,
     error,
-    hydraulicJump
+    hydraulicJump,
+    profileType,
+    flowRegime
   } = useSelector((state: RootState) => state.calculator);
   
   const [activeTab, setActiveTab] = useState<TabType>('input');
   
   // Use custom hooks for calculations and results handling
-  const { runCalculation, resetCalculation, getChannelClassification } = useCalculation();
+  const { 
+    runCalculation, 
+    runDetailedCalculation, // New method for standardized results
+    resetCalculation, 
+    getChannelClassification 
+  } = useCalculation();
+  
   const { 
     selectedResult, 
     selectResultByStation,
@@ -54,9 +69,21 @@ const Calculator: React.FC = () => {
     }
   }, [results, isCalculating, activeTab]);
   
-  // Handle calculation
+  // Handle calculation - updated to use both legacy and standardized calculations
   const handleCalculate = async () => {
+    // Run standard calculation for backward compatibility
     await runCalculation(channelParams);
+    
+    // Also run the detailed calculation for standardized results
+    try {
+      const detailedResults = await runDetailedCalculation(channelParams);
+      if (detailedResults) {
+        dispatch(setWaterSurfaceResults(detailedResults));
+      }
+    } catch (error) {
+      // Error is already handled by runCalculation
+      console.error('Detailed calculation error:', error);
+    }
   };
   
   // Handle reset
@@ -65,14 +92,14 @@ const Calculator: React.FC = () => {
     setActiveTab('input');
   };
   
-  // Determine profile type for visualization - handle the case when there are no results
-  const profileType = results.length > 0 ? getProfileType : ProfileType.UNKNOWN;
+  // Determine profile type - use stored value if available, otherwise calculate
+  const displayProfileType = profileType || (results.length > 0 ? getProfileType : ProfileType.UNKNOWN);
   
   // Determine channel slope classification with type assertion
   const channelSlope = getChannelClassification() as 'mild' | 'critical' | 'steep';
   
   // Handle channel type change
-  const handleChannelTypeChange = (type: 'rectangular' | 'trapezoidal' | 'triangular' | 'circular') => {
+  const handleChannelTypeChange = (type: ChannelType) => {
     dispatch(setChannelType(type));
   };
   
@@ -130,11 +157,16 @@ const Calculator: React.FC = () => {
           <div id="results-section">
             <div className="flex justify-between mb-4">
               <h2 className="text-xl font-semibold">Calculation Results</h2>
-              <ExportMenu results={results} channelParams={channelParams} />
+              <ExportMenu 
+                results={results} 
+                channelParams={channelParams} 
+                standardResults={detailedResults}
+              />
             </div>
             
             <ResultsTable 
               results={results} 
+              standardResults={detailedResults}
               hydraulicJump={hydraulicJump}
               onSelectResult={handleStationSelect}
             />
@@ -154,8 +186,9 @@ const Calculator: React.FC = () => {
         {activeTab === 'profile' && results.length > 0 && (
           <ProfileVisualization 
             results={getFilteredResults(100)}
-            profileType={profileType}
+            profileType={displayProfileType}
             channelSlope={channelSlope}
+            standardResults={detailedResults}
           />
         )}
         
@@ -184,12 +217,16 @@ const Calculator: React.FC = () => {
             <CrossSectionView
               selectedResult={selectedResult}
               channelType={channelParams.channelType}
+              standardResults={detailedResults}
             />
           </div>
         )}
         
         {activeTab === 'water-surface' && results.length > 0 && (
-          <WaterSurfaceVisualization results={getFilteredResults(200)} />
+          <WaterSurfaceVisualization 
+            results={getFilteredResults(200)} 
+            standardResults={detailedResults}
+          />
         )}
       </div>
     </div>
