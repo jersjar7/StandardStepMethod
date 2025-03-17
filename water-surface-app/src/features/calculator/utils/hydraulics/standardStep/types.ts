@@ -22,8 +22,14 @@ import {
 export type {
   FlowDepthPoint,
   ChannelParams,
-  ProfileType,
-  FlowRegime
+  ProfileStatistics,
+  WaterSurfaceProfileResults
+};
+
+// Export enums fully to allow usage as values
+export { 
+  ProfileType, 
+  FlowRegime 
 };
 
 /**

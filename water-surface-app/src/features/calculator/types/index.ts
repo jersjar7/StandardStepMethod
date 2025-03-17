@@ -93,6 +93,7 @@ export interface FlowDepthPoint {
   specificEnergy: number;    // Specific energy
   criticalDepth: number;     // Critical depth
   normalDepth: number;       // Normal depth
+  topWidth: number;          // Top width of water surface
 }
 
 // Re-export hydraulic jump types

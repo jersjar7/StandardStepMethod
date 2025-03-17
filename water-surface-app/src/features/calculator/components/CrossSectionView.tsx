@@ -1,17 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  StandardCalculationResult, 
+  WaterSurfaceProfileResults, 
+  FlowDepthPoint,
   ChannelType, 
-  UnitSystem, 
-  WaterSurfaceProfileResults,
-  FlowDepthPoint
+  UnitSystem
 } from '../types';
 import { getFlowRegimeDescription } from '../stores/types/resultTypes';
 import { formatWithUnit } from '../../../utils/formatters';
 
 interface CrossSectionViewProps {
-  selectedResult: StandardCalculationResult;
-  standardResults?: WaterSurfaceProfileResults;
+  results: WaterSurfaceProfileResults;
   selectedFlowPoint?: FlowDepthPoint;
   channelType: ChannelType;
   unitSystem?: UnitSystem;
@@ -24,8 +22,7 @@ interface LabelPosition {
 }
 
 const CrossSectionView: React.FC<CrossSectionViewProps> = ({ 
-  selectedResult, 
-  standardResults,
+  results, 
   selectedFlowPoint,
   channelType,
   unitSystem = 'metric'
@@ -36,38 +33,48 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
   const [labels, setLabels] = useState<LabelPosition[]>([]);
   
   useEffect(() => {
-    // Directly use the selectedResult data for visualization
-    if (selectedResult) {
-      generateCrossSection(selectedResult, selectedFlowPoint);
+    // Check if results and flow profile exist
+    if (results?.flowProfile && results.flowProfile.length > 0) {
+      // If no specific flow point is selected, use the first point
+      const flowPoint = selectedFlowPoint || results.flowProfile[0];
+      generateCrossSection(flowPoint);
     }
-  }, [selectedResult, standardResults, channelType, unitSystem, selectedFlowPoint]);
+  }, [results, selectedFlowPoint, channelType, unitSystem]);
   
   const generateCrossSection = (
-    result: StandardCalculationResult,
-    flowPoint?: FlowDepthPoint
+    flowPoint: FlowDepthPoint
   ) => {
     // Clear existing data
     setSvgPath("");
     setWaterPath("");
     setLabels([]);
     
-    if (!result) return;
+    if (!flowPoint) return;
     
     // Default dimensions
     const width = 400;
     const height = 300;
     const padding = 50; // Padding for labels
     
-    // Use either the flow point data (preferred) or standard result data
-    const depth = flowPoint ? flowPoint.y : result.depth;
-    const topWidth = result.topWidth;
-    const velocity = flowPoint ? flowPoint.velocity : result.velocity;
-    const froudeNumber = flowPoint ? flowPoint.froudeNumber : result.froudeNumber;
+    // Use flow point data
+    const depth = flowPoint.y;
     
-    // Create SVG paths based on channel type
-    let channelPath = "";
-    let waterSurfacePath = "";
-    let newLabels: LabelPosition[] = [];
+    // Estimate top width based on channel type
+    let topWidth: number;
+    switch (channelType) {
+      case 'rectangular':
+      case 'trapezoidal':
+        topWidth = results.flowProfile[0].topWidth || depth * 2; // Approximate
+        break;
+      case 'triangular':
+        topWidth = depth * 2; // For triangular, width is proportional to depth
+        break;
+      case 'circular':
+        topWidth = results.flowProfile[0].topWidth || depth; // Diameter or approximation
+        break;
+      default:
+        topWidth = depth * 2;
+    }
     
     // Scale factors to fit the drawing within SVG
     const scale = Math.min((width - 2 * padding) / (topWidth || 1), (height - 2 * padding) / (depth || 1));
@@ -75,6 +82,11 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     // Center point - reference for positioning
     const centerX = width / 2;
     const bottomY = height - padding;
+    
+    // Generate SVG paths based on channel type
+    let channelPath = "";
+    let waterSurfacePath = "";
+    let newLabels: LabelPosition[] = [];
     
     switch (channelType) {
       case 'rectangular':
@@ -120,8 +132,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
         break;
         
       case 'trapezoidal':
-        // Need to calculate bottom width from top width and side slopes
-        // Using a default sideSlope of 2 if not provided
+        // Estimate side slope
         const sideSlope = 2; 
         const slopeRatio = depth / sideSlope;
         const bottomWidth = Math.max(0.1, (topWidth || 1) - 2 * slopeRatio);
@@ -258,8 +269,8 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     setLabels(newLabels);
   };
   
-  // If no selected result, show a placeholder
-  if (!selectedResult) {
+  // If no results, show a placeholder
+  if (!results || !results.flowProfile || results.flowProfile.length === 0) {
     return (
       <div className="bg-white shadow rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Channel Cross Section</h3>
@@ -270,15 +281,13 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     );
   }
   
-  // Extract data for visualization
-  const station = selectedResult.station;
-  const depth = selectedFlowPoint ? selectedFlowPoint.y : selectedResult.depth;
-  const area = selectedResult.area;
-  const topWidth = selectedResult.topWidth;
-  const velocity = selectedFlowPoint ? selectedFlowPoint.velocity : selectedResult.velocity;
-  const froudeNumber = selectedFlowPoint ? selectedFlowPoint.froudeNumber : selectedResult.froudeNumber;
-  const wetPerimeter = selectedResult.wetPerimeter;
-  const hydraulicRadius = selectedResult.hydraulicRadius;
+  // Select the flow point to display
+  const flowPoint = selectedFlowPoint || results.flowProfile[0];
+  
+  // Find the appropriate result for the selected point
+  const selectedResult = results.flowProfile.find(point => 
+    Math.abs(point.x - (flowPoint?.x || 0)) < 0.01
+  ) || results.flowProfile[0];
   
   return (
     <div className="bg-white shadow rounded-lg p-6">
@@ -286,10 +295,9 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
       
       <div className="mb-4">
         <p className="text-sm text-gray-600">
-          Station: {formatWithUnit(station, 'station', unitSystem, 2)} | 
-          Depth: {formatWithUnit(depth, 'depth', unitSystem, 3)} | 
-          Area: {formatWithUnit(area, 'area', unitSystem, 2)} | 
-          Top Width: {formatWithUnit(topWidth, 'topWidth', unitSystem, 2)}
+          Station: {formatWithUnit(flowPoint.x, 'station', unitSystem, 2)} | 
+          Depth: {formatWithUnit(flowPoint.y, 'depth', unitSystem, 3)} | 
+          Velocity: {formatWithUnit(flowPoint.velocity, 'velocity', unitSystem, 2)}
         </p>
       </div>
       
@@ -338,41 +346,50 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
         <h4 className="text-md font-medium text-gray-900 mb-2">Hydraulic Properties</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-gray-50 p-3 rounded-md">
-            <p className="text-xs text-gray-500">Wetted Perimeter</p>
-            <p className="text-lg font-medium">{formatWithUnit(wetPerimeter, 'wetPerimeter', unitSystem, 2)}</p>
-          </div>
-          <div className="bg-gray-50 p-3 rounded-md">
-            <p className="text-xs text-gray-500">Hydraulic Radius</p>
-            <p className="text-lg font-medium">{formatWithUnit(hydraulicRadius, 'hydraulicRadius', unitSystem, 3)}</p>
+            <p className="text-xs text-gray-500">Depth</p>
+            <p className="text-lg font-medium">{formatWithUnit(flowPoint.y, 'depth', unitSystem, 3)}</p>
           </div>
           <div className="bg-gray-50 p-3 rounded-md">
             <p className="text-xs text-gray-500">Velocity</p>
-            <p className="text-lg font-medium">{formatWithUnit(velocity, 'velocity', unitSystem, 2)}</p>
+            <p className="text-lg font-medium">{formatWithUnit(flowPoint.velocity, 'velocity', unitSystem, 2)}</p>
           </div>
           <div className="bg-gray-50 p-3 rounded-md">
             <p className="text-xs text-gray-500">Froude Number</p>
-            <p className="text-lg font-medium">{formatWithUnit(froudeNumber, 'froudeNumber', unitSystem, 3)}</p>
+            <p className="text-lg font-medium">{formatWithUnit(flowPoint.froudeNumber, 'froudeNumber', unitSystem, 3)}</p>
             <p className="text-xs text-gray-500">
-              {getFlowRegimeDescription(froudeNumber)}
+              {getFlowRegimeDescription(flowPoint.froudeNumber)}
             </p>
+          </div>
+          <div className="bg-gray-50 p-3 rounded-md">
+            <p className="text-xs text-gray-500">Specific Energy</p>
+            <p className="text-lg font-medium">{formatWithUnit(flowPoint.specificEnergy, 'energy', unitSystem, 3)}</p>
           </div>
         </div>
       </div>
       
-      {/* Additional information from standardized results if available */}
-      {standardResults && (
-        <div className="mt-4 p-3 bg-gray-50 rounded-md">
-          <h4 className="text-sm font-medium text-gray-900 mb-2">Profile Information</h4>
-          <p className="text-xs text-gray-700">
-            Profile Type: {standardResults.profileType}
-          </p>
-          {'profileDescription' in standardResults && standardResults.profileDescription && (
-            <p className="text-xs text-gray-700 mt-1">
-              {standardResults.profileDescription}
+      {/* Profile Information */}
+      <div className="mt-4 p-3 bg-gray-50 rounded-md">
+        <h4 className="text-sm font-medium text-gray-900 mb-2">Profile Information</h4>
+        <p className="text-xs text-gray-700">
+          Profile Type: {results.profileType}
+        </p>
+        <p className="text-xs text-gray-700 mt-1">
+          Channel Type: {results.channelType}
+        </p>
+        
+        {/* Hydraulic Jump Information */}
+        {results.hydraulicJump?.occurs && (
+          <div className="mt-2">
+            <p className="text-xs text-gray-700">
+              Hydraulic Jump: Occurs at station {formatWithUnit(results.hydraulicJump.station || 0, 'station', unitSystem, 2)}
             </p>
-          )}
-        </div>
-      )}
+            <p className="text-xs text-gray-700">
+              Depth Change: {formatWithUnit(results.hydraulicJump.upstreamDepth || 0, 'depth', unitSystem, 3)} 
+              → {formatWithUnit(results.hydraulicJump.downstreamDepth || 0, 'depth', unitSystem, 3)}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

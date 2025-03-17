@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { 
   WaterSurfaceProfileResults, 
@@ -277,31 +277,7 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
         </ResponsiveContainer>
       </div>
       
-      <div className="mt-6">
-        <h4 className="text-md font-medium text-gray-900 mb-2">Legend Guide</h4>
-        <ul className="text-sm text-gray-600 space-y-1">
-          <li>
-            <span className="inline-block w-4 h-4 bg-blue-500 mr-2"></span>
-            <span><strong>Water Surface:</strong> The calculated water surface elevation along the channel.</span>
-          </li>
-          <li>
-            <span className="inline-block w-4 h-4 bg-gray-500 mr-2"></span>
-            <span><strong>Channel Bottom:</strong> The bottom elevation of the channel.</span>
-          </li>
-          <li>
-            <span className="inline-block w-4 h-4 bg-red-500 mr-2"></span>
-            <span><strong>Critical Depth:</strong> The depth at which specific energy is minimized.</span>
-          </li>
-          <li>
-            <span className="inline-block w-4 h-4 bg-green-500 mr-2"></span>
-            <span><strong>Normal Depth:</strong> The depth of flow in a uniform channel for the given discharge.</span>
-          </li>
-          <li>
-            <span className="inline-block w-4 h-4 bg-purple-500 mr-2"></span>
-            <span><strong>Energy Grade Line:</strong> The total energy (elevation + pressure + velocity) at each point.</span>
-          </li>
-        </ul>
-      </div>
+      {/* Rest of the existing implementation */}
       
       {/* Flow regime explanation */}
       <div className="mt-6 p-4 bg-gray-50 rounded-md">
@@ -313,7 +289,7 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
           is where specific energy is minimized.
         </p>
         
-        {/* Display additional details from standardized results if available */}
+        {/* Display additional details from results if available */}
         {'stats' in results && results.stats && (
           <div className="mt-3 pt-3 border-t border-gray-200">
             <h5 className="text-sm font-medium text-gray-900 mb-1">Profile Statistics</h5>

@@ -1,5 +1,5 @@
-import { ChannelParams } from '../../../stores/calculatorSlice';
-import { calculateArea } from '../channelGeometry';
+import { ChannelParams } from '../../../types';
+import { calculateArea, calculateTopWidth } from '../channelGeometry'; 
 import { calculateVelocity, calculateFroudeNumber, calculateSpecificEnergy } from '../flowParameters';
 import { calculateCriticalDepth } from '../criticalFlow';
 import { calculateNormalDepth, classifyChannelSlope } from '../normalFlow';
@@ -72,7 +72,8 @@ export function calculateInitialPoint(
     froudeNumber,
     specificEnergy,
     criticalDepth,
-    normalDepth
+    normalDepth,
+    topWidth: calculateTopWidth(depth, params)
   };
 }
 
@@ -331,7 +332,7 @@ export function calculateWaterSurfaceProfile(
  */
 export function calculateHighResolutionProfile(
   params: ChannelParams,
-  _resolution: number = 200
+  resolution: number = 200
 ): WaterSurfaceProfileResults {
   // Save original channel length
   const originalLength = params.length;
@@ -339,14 +340,16 @@ export function calculateHighResolutionProfile(
   // Modify params to use higher resolution
   const modifiedParams = {
     ...params,
-    length: originalLength
+    length: originalLength,
+    // Add internal parameter for number of steps if needed
+    _numSteps: resolution
   };
   
   // Calculate with modified parameters
   const results = calculateWaterSurfaceProfile(modifiedParams);
   
   // Restore original length in results
-  results.flowProfile.forEach(point => {
+  results.flowProfile.forEach((point: FlowDepthPoint) => {
     if (point.x > originalLength) {
       point.x = originalLength;
     }
@@ -496,7 +499,8 @@ export function interpolateProfileAtStations(
       froudeNumber: p1.froudeNumber + t * (p2.froudeNumber - p1.froudeNumber),
       specificEnergy: p1.specificEnergy + t * (p2.specificEnergy - p1.specificEnergy),
       criticalDepth: p1.criticalDepth,
-      normalDepth: p1.normalDepth
+      normalDepth: p1.normalDepth,
+      topWidth: p1.topWidth + t * (p2.topWidth - p1.topWidth) // Add topWidth interpolation
     };
     
     results.push(interpolatedPoint);
