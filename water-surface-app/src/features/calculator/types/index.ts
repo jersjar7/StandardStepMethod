@@ -219,3 +219,6 @@ export interface ExportOptions {
   includeHeaders?: boolean;           // Whether to include headers (for CSV)
   decimalPlaces?: number;             // Number of decimal places
 }
+
+// Export unified result types
+export * from './resultTypes';

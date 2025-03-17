@@ -1,6 +1,6 @@
 /**
  * Types for standard step method calculations
- * Re-exports types from the central types definition and adds specific types
+ * Imports shared types from core types and defines specialized types
  * for the standard step implementation
  */
 
@@ -12,40 +12,50 @@ import {
   ChannelSlope,
   ProfileType,
   FlowRegime,
-  WaterSurfaceProfileResults as BaseWaterSurfaceProfileResults,
-  StepCalculationParams,
-  ProfileCalculationParams
-} from '../../../types';
+  StandardWaterSurfaceResults,
+  StandardCalculationResult,
+  ProfileStatistics
+} from '../../../../types';
 
-// Re-export types from central definition
+// Re-export types from core definition that are used in this module
 export type {
   FlowDepthPoint,
-  StepCalculationParams,
-  ProfileCalculationParams,
-  ChannelParams
+  ChannelParams,
+  ProfileType,
+  FlowRegime
 };
 
 // Re-export enums
 export { ProfileType, FlowRegime };
 
-// Extended WaterSurfaceProfileResults interface that uses ProfileType enum directly
-export interface WaterSurfaceProfileResults extends Omit<BaseWaterSurfaceProfileResults, 'profileType'> {
-  flowProfile: FlowDepthPoint[];
-  profileType: ProfileType;  // Using ProfileType enum instead of string
-  channelType: string;
-  criticalDepth: number;
-  normalDepth: number;
-  isChoking: boolean;
-  hydraulicJump?: HydraulicJump;
-  // Optional properties for additional analysis
-  profileDescription?: string;
-  profileDetails?: string;
-  stats?: ProfileStatistics;
+/**
+ * Internal calculation parameters for the standard step method
+ */
+export interface StepCalculationParams {
+  currentX: number;                // Current station
+  currentY: number;                // Current depth
+  nextX: number;                   // Next station
+  direction: CalculationDirection; // Calculation direction
+  params: ChannelParams;           // Channel parameters
 }
 
 /**
- * Interface for calculation result at a single point
- * Contains hydraulic properties calculated at a specific water depth
+ * Profile calculation parameters used to initialize step calculations
+ */
+export interface ProfileCalculationParams {
+  initialDepth: number;            // Initial water depth
+  direction: CalculationDirection; // Calculation direction
+  startPosition: number;           // Starting station
+  criticalDepth: number;           // Critical depth
+  normalDepth: number;             // Normal depth
+  numSteps: number;                // Number of calculation steps
+  channelSlope: ChannelSlope;      // Channel slope classification
+  params: ChannelParams;           // Channel parameters
+}
+
+/**
+ * Calculation point properties at a specific depth
+ * Used internally for hydraulic calculations
  */
 export interface CalculationPoint {
   depth: number;
@@ -58,18 +68,17 @@ export interface CalculationPoint {
 }
 
 /**
- * Extended hydraulic jump result with additional technical details
- * used for internal calculations in the standard step implementation
+ * Flow transition between different flow regimes
  */
-export interface HydraulicJumpResult extends Omit<HydraulicJump, 'occurs'> {
-  position: number;             // Location of jump (required internally)
-  depth1: number;               // Upstream depth (required internally)
-  depth2: number;               // Downstream depth (required internally)
-  energyLoss: number;           // Energy loss at jump
-  froudeNumber1: number;        // Upstream Froude number
-  length: number;               // Approximate length of hydraulic jump
-  sequentDepthRatio?: number;   // Ratio of downstream to upstream depth (y2/y1)
-  efficiency?: number;          // Jump efficiency (1 - energy loss / upstream energy)
+export interface FlowTransition {
+  fromRegime: FlowRegime;       // Initial flow regime
+  toRegime: FlowRegime;         // Final flow regime
+  station: number;              // Transition location
+  fromDepth: number;            // Depth before transition
+  toDepth: number;              // Depth after transition
+  fromFroude: number;           // Froude number before transition
+  toFroude: number;             // Froude number after transition
+  isHydraulicJump: boolean;     // Whether this is a hydraulic jump
 }
 
 /**
@@ -97,98 +106,14 @@ export const DEFAULT_STANDARD_STEP_OPTIONS: StandardStepOptions = {
 };
 
 /**
- * Result from a standard step calculation with detail
+ * Result from a standard step calculation with detailed metadata
+ * This extends the standard result with calculation details
  */
-export interface DetailedStandardStepResult extends WaterSurfaceProfileResults {
+export interface DetailedStandardStepResult extends StandardWaterSurfaceResults {
   executionTime?: number;       // Calculation time in milliseconds
   iterationCount?: number;      // Total number of iterations
   convergencePoints?: number;   // Number of points that converged
   warnings?: string[];          // Any warnings during calculation
-}
-
-/**
- * Interface for profile statistics
- */
-export interface ProfileStatistics {
-  minDepth: number;
-  maxDepth: number;
-  avgDepth: number;
-  minVelocity: number;
-  maxVelocity: number;
-  avgVelocity: number;
-  minFroude: number;
-  maxFroude: number;
-  avgFroude: number;
-  minEnergy: number;
-  maxEnergy: number;
-  avgEnergy: number;
-  length: number;
-  numPoints: number;
-  predominantFlowRegime: string;
-}
-
-/**
- * Function to convert between HydraulicJumpResult and HydraulicJump
- * @param result Detailed hydraulic jump result
- * @returns Simplified hydraulic jump for use in UI
- */
-export function convertToHydraulicJump(result: HydraulicJumpResult | undefined): HydraulicJump {
-  if (!result) return { occurs: false };
-  return {
-    occurs: true,
-    station: result.position,
-    upstreamDepth: result.depth1,
-    downstreamDepth: result.depth2,
-    energyLoss: result.energyLoss,
-    froudeNumber1: result.froudeNumber1,
-    length: result.length
-  };
-}
-
-/**
- * Function to convert from FlowDepthPoint array to standard calculation results
- * @param flowPoints Array of flow depth points
- * @returns Water surface profile results object
- */
-export function createWaterSurfaceResults(
-  flowPoints: FlowDepthPoint[],
-  channelSlope: ChannelSlope,
-  criticalDepth: number,
-  normalDepth: number,
-  jumpResult?: HydraulicJumpResult
-): WaterSurfaceProfileResults {
-  // Get first point to determine profile type
-  const initialDepth = flowPoints.length > 0 ? flowPoints[0].y : 0;
-  
-  // Determine profile type
-  let profileType: ProfileType;
-  
-  if (channelSlope === 'mild') {
-    if (initialDepth > normalDepth) profileType = ProfileType.M1;
-    else if (initialDepth < normalDepth && initialDepth > criticalDepth) profileType = ProfileType.M2;
-    else profileType = ProfileType.M3;
-  } else if (channelSlope === 'steep') {
-    if (initialDepth > criticalDepth) profileType = ProfileType.S1;
-    else if (initialDepth < criticalDepth && initialDepth > normalDepth) profileType = ProfileType.S2;
-    else profileType = ProfileType.S3;
-  } else {
-    if (initialDepth > criticalDepth) profileType = ProfileType.C1;
-    else if (initialDepth < criticalDepth) profileType = ProfileType.C3;
-    else profileType = ProfileType.C2;
-  }
-  
-  // Create simplified hydraulic jump if provided
-  const hydraulicJump = jumpResult ? convertToHydraulicJump(jumpResult) : undefined;
-  
-  return {
-    flowProfile: flowPoints,
-    profileType, // Using ProfileType enum directly
-    channelType: channelSlope,
-    criticalDepth,
-    normalDepth,
-    isChoking: false, // Would be determined during calculation
-    hydraulicJump
-  };
 }
 
 /**
