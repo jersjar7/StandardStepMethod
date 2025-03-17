@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { 
-  CalculationResult, 
   WaterSurfaceProfileResults,
   FlowDepthPoint,
   UnitSystem
@@ -8,14 +7,11 @@ import {
 import { formatWithUnit } from '../../../utils/formatters';
 
 interface WaterSurfaceVisualizationProps {
-  // Support both legacy and standardized results
-  results: CalculationResult[];
-  standardResults?: WaterSurfaceProfileResults;
+  standardResults: WaterSurfaceProfileResults;
   unitSystem?: UnitSystem;
 }
 
 const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({ 
-  results, 
   standardResults,
   unitSystem = 'metric'
 }) => {
@@ -43,11 +39,10 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({
   }, []);
 
   useEffect(() => {
-    // Check for both legacy and standardized results
-    const hasLegacyResults = results && results.length > 0;
-    const hasStandardResults = standardResults?.flowProfile && standardResults.flowProfile.length > 0;
+    // Check if we have valid standardized results
+    const hasResults = standardResults?.flowProfile && standardResults.flowProfile.length > 0;
     
-    if (!hasLegacyResults && !hasStandardResults) {
+    if (!hasResults) {
       setIsLoading(false);
       setError("No calculation results available");
       return;
@@ -61,16 +56,11 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({
       setError(err instanceof Error ? err.message : "An error occurred during visualization");
       setIsLoading(false);
     }
-  }, [results, standardResults, canvasSize, unitSystem]);
+  }, [standardResults, canvasSize, unitSystem]);
 
   const renderWaterSurface = () => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !standardResults?.flowProfile) return;
     
-    // Determine which data source to use
-    const useStandardResults = standardResults?.flowProfile && standardResults.flowProfile.length > 0;
-    
-    if (!useStandardResults && (!results || results.length === 0)) return;
-
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -78,26 +68,12 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Extract data from results
-    let stations: number[] = [];
-    let depths: number[] = [];
-    let criticalDepth = 0;
-    let normalDepth = 0;
-    
-    if (useStandardResults) {
-      // Use standardized results
-      const flowProfile = standardResults!.flowProfile;
-      stations = flowProfile.map(p => p.x);
-      depths = flowProfile.map(p => p.y);
-      criticalDepth = standardResults!.criticalDepth || 0;
-      normalDepth = standardResults!.normalDepth || 0;
-    } else {
-      // Use legacy results
-      stations = results.map(r => r.station);
-      depths = results.map(r => r.depth);
-      criticalDepth = results[0]?.criticalDepth || 0;
-      normalDepth = results[0]?.normalDepth || 0;
-    }
+    // Extract data from standardized results
+    const flowProfile = standardResults.flowProfile;
+    const stations = flowProfile.map(p => p.x);
+    const depths = flowProfile.map(p => p.y);
+    const criticalDepth = standardResults.criticalDepth;
+    const normalDepth = standardResults.normalDepth;
 
     // Find min and max values for scaling
     const minStation = Math.min(...stations);
@@ -220,18 +196,14 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({
     }
 
     // Draw water surface
-    const dataPoints = useStandardResults 
-      ? standardResults!.flowProfile.map(p => ({ station: p.x, depth: p.y, froudeNumber: p.froudeNumber }))
-      : results.map(r => ({ station: r.station, depth: r.depth, froudeNumber: r.froudeNumber }));
-    
     // Sort data points by station to ensure correct line drawing
-    dataPoints.sort((a, b) => a.station - b.station);
+    const sortedPoints = [...flowProfile].sort((a, b) => a.x - b.x);
     
     ctx.beginPath();
-    ctx.moveTo(transformX(dataPoints[0].station), transformY(dataPoints[0].depth));
+    ctx.moveTo(transformX(sortedPoints[0].x), transformY(sortedPoints[0].y));
     
-    for (let i = 1; i < dataPoints.length; i++) {
-      ctx.lineTo(transformX(dataPoints[i].station), transformY(dataPoints[i].depth));
+    for (let i = 1; i < sortedPoints.length; i++) {
+      ctx.lineTo(transformX(sortedPoints[i].x), transformY(sortedPoints[i].y));
     }
     
     ctx.strokeStyle = '#3b82f6';
@@ -239,18 +211,18 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({
     ctx.stroke();
 
     // Fill water area
-    ctx.lineTo(transformX(dataPoints[dataPoints.length - 1].station), transformY(0));
-    ctx.lineTo(transformX(dataPoints[0].station), transformY(0));
+    ctx.lineTo(transformX(sortedPoints[sortedPoints.length - 1].x), transformY(0));
+    ctx.lineTo(transformX(sortedPoints[0].x), transformY(0));
     ctx.closePath();
     ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
     ctx.fill();
 
     // Draw froude number indicators
-    dataPoints.forEach((point, i) => {
+    sortedPoints.forEach((point, i) => {
       // Only draw for some points to avoid clutter
       if (i % 10 === 0) {
-        const x = transformX(point.station);
-        const y = transformY(point.depth);
+        const x = transformX(point.x);
+        const y = transformY(point.y);
         
         if (point.froudeNumber > 1) {
           // Supercritical flow - red indicator
@@ -274,8 +246,8 @@ const WaterSurfaceVisualization: React.FC<WaterSurfaceVisualizationProps> = ({
     ctx.font = '16px Arial';
     ctx.fillText('Water Surface Profile', canvas.width / 2, padding.top);
     
-    // Draw hydraulic jump if present in the standardized results
-    if (standardResults?.hydraulicJump?.occurs) {
+    // Draw hydraulic jump if present
+    if (standardResults.hydraulicJump?.occurs) {
       const jump = standardResults.hydraulicJump;
       const jumpStation = jump.station || 0;
       

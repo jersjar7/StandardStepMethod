@@ -6,10 +6,7 @@
  * with separate functionality for profile calculation, step calculation,
  * hydraulic jump detection, and profile classification.
  * 
- * The standard step method is an iterative procedure used to compute the
- * water surface profile in gradually varied flow. It solves the energy equation
- * between two consecutive cross-sections, accounting for energy losses due
- * to friction and other factors.
+ * All functions ensure consistent return types using the standardized type system.
  */
 
 import { 
@@ -20,16 +17,12 @@ import {
   FlowRegime,
   WaterSurfaceProfileResults,
   DetailedWaterSurfaceResults,
-  CalculationResultWithError,
-  StandardCalculationResult,
-  ProfileStatistics
+  CalculationResultWithError
 } from '../../../types';
 
 // Import core calculation components
 import { 
   calculateWaterSurfaceProfile as calculateBaseWaterSurfaceProfile, 
-  calculateHighResolutionProfile,
-  calculateBidirectionalProfile,
   determineProfileType,
   setupInitialConditions,
   validateCalculationParameters,
@@ -88,7 +81,7 @@ export { ProfileType, FlowRegime };
  * This is the primary function that should be used by the application
  * 
  * @param params Channel parameters including geometry, flow, and roughness
- * @returns Complete water surface profile calculation results
+ * @returns Standardized water surface profile calculation results
  */
 export function calculateWaterSurfaceProfile(
   params: ChannelParams
@@ -98,13 +91,10 @@ export function calculateWaterSurfaceProfile(
 
 /**
  * Export calculation functions for direct access
+ * All functions maintain consistent return types with the standardized type system
  */
 export {
   // Main calculation functions
-  calculateHighResolutionProfile,
-  calculateBidirectionalProfile,
-  
-  // Profile setup and classification
   determineProfileType,
   setupInitialConditions,
   validateCalculationParameters,
@@ -123,7 +113,7 @@ export {
   
   // Flow transition detection
   detectFlowTransitions,
-  determineFlowRegime,
+  determineFlowRegime as determinePointFlowRegime, // Renamed to avoid naming conflict
   classifyProfileByTransitions,
   findCriticalDepthLocation,
   findNormalDepthLocation,
@@ -138,6 +128,8 @@ export {
 
 /**
  * Calculate water surface profile with validation and error handling
+ * Returns the standardized WaterSurfaceProfileResults type or an error
+ * 
  * @param params Channel parameters
  * @returns Water surface profile calculation results or error
  */
@@ -164,6 +156,8 @@ export function calculateProfileWithErrorHandling(
 
 /**
  * Calculate detailed water surface profile with additional analysis
+ * Returns the standardized DetailedWaterSurfaceResults type
+ * 
  * @param params Channel parameters
  * @returns Detailed water surface profile results or error
  */
@@ -176,15 +170,29 @@ export function calculateDetailedProfile(
     
     // Perform additional analysis
     const profileDescription = getProfileDescription(results.flowProfile, params);
-    const profileStats = calculateProfileStatistics(results.flowProfile);
+    const stats = calculateProfileStatistics(results.flowProfile);
     
-    // Return enhanced results
+    // Determine flow regime based on Froude numbers
+    let predominantFlowRegime = FlowRegime.SUBCRITICAL;
+    let subcriticalCount = 0;
+    let supercriticalCount = 0;
+    
+    results.flowProfile.forEach(point => {
+      if (point.froudeNumber < 1) subcriticalCount++;
+      else supercriticalCount++;
+    });
+    
+    if (supercriticalCount > subcriticalCount) {
+      predominantFlowRegime = FlowRegime.SUPERCRITICAL;
+    }
+    
+    // Create detailed results using the standardized type
     const detailedResults: DetailedWaterSurfaceResults = {
       ...results,
       profileDescription: profileDescription.description,
       profileDetails: profileDescription.details,
-      flowRegime: determineOverallFlowRegime(results),
-      stats: profileStats
+      flowRegime: predominantFlowRegime,
+      stats
     };
     
     return { results: detailedResults };
@@ -197,10 +205,12 @@ export function calculateDetailedProfile(
 
 /**
  * Determine the overall flow regime based on calculation results
+ * Returns the standardized FlowRegime type
+ * 
  * @param results Water surface profile results
  * @returns Predominant flow regime
  */
-function determineOverallFlowRegime(results: WaterSurfaceProfileResults): FlowRegime {
+export function determineOverallFlowRegime(results: WaterSurfaceProfileResults): FlowRegime {
   // Check if flowProfile is available
   if (!results.flowProfile || results.flowProfile.length === 0) {
     return FlowRegime.SUBCRITICAL; // Default if no data
@@ -229,6 +239,8 @@ function determineOverallFlowRegime(results: WaterSurfaceProfileResults): FlowRe
 
 /**
  * Batch calculate multiple profiles with different parameters
+ * Returns an array of standardized calculation results
+ * 
  * @param paramsArray Array of channel parameters
  * @returns Array of calculation results
  */
@@ -239,23 +251,9 @@ export function batchCalculateProfiles(
 }
 
 /**
- * Calculate reference profiles for critical and normal depths
- * @param params Channel parameters
- * @returns Critical and normal depth profiles
- */
-export function calculateReferenceProfiles(
-  params: ChannelParams
-): { 
-  criticalProfile: FlowDepthPoint[]; 
-  normalProfile: FlowDepthPoint[]; 
-} {
-  // Implementation is provided in hydraulics/index.ts
-  // This re-export is for consistency in the API
-  throw new Error("Not implemented at this level. Use the method from hydraulics/index.ts");
-}
-
-/**
  * Configure standard step calculation with custom options
+ * Returns a function that produces standardized results
+ * 
  * @param options Configuration options
  * @returns Configured calculation function
  */
@@ -266,12 +264,27 @@ export function configureStandardStepCalculation(options: {
   useNewtonRaphson?: boolean;
 }): (params: ChannelParams) => WaterSurfaceProfileResults {
   return (params: ChannelParams): WaterSurfaceProfileResults => {
-    // Apply options to calculation
-    if (options.resolution) {
-      return calculateHighResolutionProfile(params, options.resolution);
+    // Create modified params with any option overrides
+    const modifiedParams = { ...params };
+    
+    if (options.maxIterations) {
+      (modifiedParams as any)._maxIterations = options.maxIterations;
     }
     
-    // Default calculation
-    return calculateWaterSurfaceProfile(params);
+    if (options.convergenceTolerance) {
+      (modifiedParams as any)._tolerance = options.convergenceTolerance;
+    }
+    
+    if (options.useNewtonRaphson) {
+      (modifiedParams as any)._useNewtonRaphson = options.useNewtonRaphson;
+    }
+    
+    if (options.resolution) {
+      // Higher resolution means more calculation steps
+      (modifiedParams as any)._numSteps = options.resolution;
+    }
+    
+    // Calculate with modified parameters and return standardized results
+    return calculateWaterSurfaceProfile(modifiedParams);
   };
 }

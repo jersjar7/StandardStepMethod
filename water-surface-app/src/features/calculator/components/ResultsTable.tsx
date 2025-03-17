@@ -1,30 +1,23 @@
 import React, { useState } from 'react';
 import { 
-  CalculationResult, 
-  HydraulicJump, 
+  WaterSurfaceProfileResults, 
+  FlowDepthPoint,
   UnitSystem,
-  StandardCalculationResult,
-  WaterSurfaceProfileResults,
   FlowRegime
 } from '../types';
 import { getFlowRegimeDescription } from '../stores/types/resultTypes';
 import { formatWithUnit, getParameterLabels } from '../../../utils/formatters';
 
 interface ResultsTableProps {
-  // Support both the legacy results array and the new standardized results
-  results: CalculationResult[] | StandardCalculationResult[];
-  standardResults?: WaterSurfaceProfileResults;
-  hydraulicJump?: HydraulicJump;
+  results: WaterSurfaceProfileResults;
   unitSystem?: UnitSystem;
-  onSelectResult?: (index: number) => void;
+  onSelectPoint?: (point: FlowDepthPoint) => void;
 }
 
 const ResultsTable: React.FC<ResultsTableProps> = ({ 
   results, 
-  standardResults,
-  hydraulicJump,
   unitSystem = 'metric',
-  onSelectResult 
+  onSelectPoint 
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const resultsPerPage = 10;
@@ -32,17 +25,17 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
   // Get parameter labels with proper units
   const labels = getParameterLabels(unitSystem);
   
-  // Use hydraulic jump from standardResults if available
-  const jumpInfo = standardResults?.hydraulicJump || hydraulicJump;
+  // Get the flow profile from the results
+  const { flowProfile, hydraulicJump } = results;
   
   // Calculate the total number of pages
-  const totalPages = Math.ceil(results.length / resultsPerPage);
+  const totalPages = Math.ceil(flowProfile.length / resultsPerPage);
   
   // Get the current page results
   const getCurrentResults = () => {
     const startIndex = (currentPage - 1) * resultsPerPage;
-    const endIndex = Math.min(startIndex + resultsPerPage, results.length);
-    return results.slice(startIndex, endIndex);
+    const endIndex = Math.min(startIndex + resultsPerPage, flowProfile.length);
+    return flowProfile.slice(startIndex, endIndex);
   };
   
   // Handle page navigation
@@ -53,18 +46,16 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
   };
 
   // Handle row selection
-  const handleRowClick = (index: number) => {
-    if (onSelectResult) {
-      // Convert index in the current page to index in the overall results array
-      const globalIndex = (currentPage - 1) * resultsPerPage + index;
-      onSelectResult(globalIndex);
+  const handleRowClick = (point: FlowDepthPoint) => {
+    if (onSelectPoint) {
+      onSelectPoint(point);
     }
   };
   
   const currentResults = getCurrentResults();
   
   // Show a message if no results are available
-  if (results.length === 0) {
+  if (flowProfile.length === 0) {
     return (
       <div className="bg-white shadow rounded-lg p-6">
         <p className="text-gray-500">No calculation results available. Please run a calculation first.</p>
@@ -78,8 +69,8 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
         <h3 className="text-lg font-medium text-gray-900">Calculation Results</h3>
         <p className="mt-1 text-sm text-gray-600">
           Water surface profile calculation results showing station, depth, velocity, and other hydraulic parameters.
-          {standardResults?.profileType && (
-            <span className="ml-2 font-medium">{standardResults.profileType}</span>
+          {results.profileType && (
+            <span className="ml-2 font-medium">{results.profileType}</span>
           )}
         </p>
       </div>
@@ -98,28 +89,22 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                 {labels.velocity}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {labels.area}
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {labels.topWidth}
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {labels.hydraulicRadius}
+                {labels.froudeNumber}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {labels.energy}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {labels.froudeNumber}
+                Flow Regime
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {currentResults.map((result, index) => {
+            {currentResults.map((point, index) => {
               // Determine flow regime class for styling
-              const flowRegimeClass = result.froudeNumber > 1 
+              const flowRegimeClass = point.froudeNumber > 1 
                 ? 'bg-yellow-50' // Supercritical
-                : result.froudeNumber < 1 
+                : point.froudeNumber < 1 
                   ? 'bg-blue-50' // Subcritical
                   : ''; // Critical
               
@@ -127,33 +112,26 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                 <tr 
                   key={index}
                   className={`${flowRegimeClass} cursor-pointer hover:bg-gray-50`}
-                  onClick={() => handleRowClick(index)}
+                  onClick={() => handleRowClick(point)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatWithUnit(result.station, 'station', unitSystem, 2)}
+                    {formatWithUnit(point.x, 'station', unitSystem, 2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatWithUnit(result.depth, 'depth', unitSystem, 3)}
+                    {formatWithUnit(point.y, 'depth', unitSystem, 3)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatWithUnit(result.velocity, 'velocity', unitSystem, 3)}
+                    {formatWithUnit(point.velocity, 'velocity', unitSystem, 3)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatWithUnit(result.area, 'area', unitSystem, 3)}
+                    {formatWithUnit(point.froudeNumber, 'froudeNumber', unitSystem, 3)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatWithUnit(result.topWidth, 'topWidth', unitSystem, 3)}
+                    {formatWithUnit(point.specificEnergy, 'energy', unitSystem, 3)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatWithUnit(result.hydraulicRadius, 'hydraulicRadius', unitSystem, 3)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatWithUnit(result.energy, 'energy', unitSystem, 3)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatWithUnit(result.froudeNumber, 'froudeNumber', unitSystem, 3)}
-                    <span className="ml-2 text-xs text-gray-500">
-                      {getFlowRegimeDescription(result.froudeNumber)}
+                    <span className="text-xs text-gray-500">
+                      {getFlowRegimeDescription(point.froudeNumber)}
                     </span>
                   </td>
                 </tr>
@@ -193,24 +171,22 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
           <div>
             <span className="text-sm font-medium text-gray-500">
-              Total Results: {results.length}
+              Total Results: {flowProfile.length}
             </span>
-            {standardResults?.profileType && (
+            {results.profileType && (
               <span className="ml-4 text-sm font-medium text-gray-500">
-                Profile Type: {standardResults.profileType}
+                Profile Type: {results.profileType}
               </span>
             )}
           </div>
           
-          {results.length > 0 && (
+          {flowProfile.length > 0 && (
             <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
               <span className="text-sm font-medium text-gray-500">
-                {results[0].normalDepth && 
-                  `Normal Depth: ${formatWithUnit(results[0].normalDepth, 'normalDepth', unitSystem, 3)}`}
+                Normal Depth: {formatWithUnit(results.normalDepth, 'normalDepth', unitSystem, 3)}
               </span>
               <span className="text-sm font-medium text-gray-500">
-                {results[0].criticalDepth && 
-                  `Critical Depth: ${formatWithUnit(results[0].criticalDepth, 'criticalDepth', unitSystem, 3)}`}
+                Critical Depth: {formatWithUnit(results.criticalDepth, 'criticalDepth', unitSystem, 3)}
               </span>
             </div>
           )}
@@ -218,12 +194,12 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
       </div>
       
       {/* Hydraulic Jump Information */}
-      {jumpInfo?.occurs && (
+      {hydraulicJump?.occurs && (
         <div className="px-6 py-4 bg-yellow-50 border-t border-yellow-200">
           <h4 className="text-sm font-medium text-yellow-800">Hydraulic Jump Detected</h4>
           <p className="mt-1 text-sm text-yellow-700">
-            A hydraulic jump occurs at station {formatWithUnit(jumpInfo.station || 0, 'station', unitSystem, 2)}.
-            The water depth changes from {formatWithUnit(jumpInfo.upstreamDepth || 0, 'depth', unitSystem, 3)} to {formatWithUnit(jumpInfo.downstreamDepth || 0, 'depth', unitSystem, 3)}.
+            A hydraulic jump occurs at station {formatWithUnit(hydraulicJump.station, 'station', unitSystem, 2)}.
+            The water depth changes from {formatWithUnit(hydraulicJump.upstreamDepth, 'depth', unitSystem, 3)} to {formatWithUnit(hydraulicJump.downstreamDepth, 'depth', unitSystem, 3)}.
           </p>
         </div>
       )}

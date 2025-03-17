@@ -1,18 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  CalculationResult, 
+  StandardCalculationResult, 
   ChannelType, 
   UnitSystem, 
   WaterSurfaceProfileResults,
-  FlowDepthPoint,
-  StandardCalculationResult
+  FlowDepthPoint
 } from '../types';
 import { getFlowRegimeDescription } from '../stores/types/resultTypes';
 import { formatWithUnit } from '../../../utils/formatters';
 
 interface CrossSectionViewProps {
-  // Support both legacy and standardized results
-  selectedResult: CalculationResult;
+  selectedResult: StandardCalculationResult;
   standardResults?: WaterSurfaceProfileResults;
   selectedFlowPoint?: FlowDepthPoint;
   channelType: ChannelType;
@@ -37,31 +35,15 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
   const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
   const [labels, setLabels] = useState<LabelPosition[]>([]);
   
-  // Find the corresponding flow point from standardized results if available
   useEffect(() => {
-    // Find the closest flow point to the selected result's station if standard results are available
-    if (standardResults?.flowProfile && standardResults.flowProfile.length > 0 && selectedResult) {
-      const closestPoint = standardResults.flowProfile.reduce((closest, current) => {
-        const currentDistance = Math.abs(current.x - selectedResult.station);
-        const closestDistance = Math.abs(closest.x - selectedResult.station);
-        return currentDistance < closestDistance ? current : closest;
-      }, standardResults.flowProfile[0]);
-      
-      // If a flow point is found, use its data
-      if (closestPoint) {
-        generateCrossSection(selectedResult, closestPoint);
-        return;
-      }
-    }
-    
-    // Fall back to legacy result if no flow point is found
+    // Directly use the selectedResult data for visualization
     if (selectedResult) {
-      generateCrossSection(selectedResult);
+      generateCrossSection(selectedResult, selectedFlowPoint);
     }
   }, [selectedResult, standardResults, channelType, unitSystem, selectedFlowPoint]);
   
   const generateCrossSection = (
-    result: CalculationResult,
+    result: StandardCalculationResult,
     flowPoint?: FlowDepthPoint
   ) => {
     // Clear existing data
@@ -76,8 +58,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     const height = 300;
     const padding = 50; // Padding for labels
     
-    // Extract values from the result or flow point
-    // Prioritize flow point data if available
+    // Use either the flow point data (preferred) or standard result data
     const depth = flowPoint ? flowPoint.y : result.depth;
     const topWidth = result.topWidth;
     const velocity = flowPoint ? flowPoint.velocity : result.velocity;
@@ -289,7 +270,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
     );
   }
   
-  // Extract data from the appropriate source
+  // Extract data for visualization
   const station = selectedResult.station;
   const depth = selectedFlowPoint ? selectedFlowPoint.y : selectedResult.depth;
   const area = selectedResult.area;
@@ -385,7 +366,7 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
           <p className="text-xs text-gray-700">
             Profile Type: {standardResults.profileType}
           </p>
-          {standardResults.profileDescription && (
+          {'profileDescription' in standardResults && standardResults.profileDescription && (
             <p className="text-xs text-gray-700 mt-1">
               {standardResults.profileDescription}
             </p>

@@ -2,12 +2,16 @@ import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
   startCalculation, 
-  calculationSuccess, 
+  setWaterSurfaceResults,
   calculationFailure, 
   resetCalculator
 } from '../stores/calculatorActions';
 import { RootState } from '../../../stores';
-import { ChannelParams, CalculationResult, HydraulicJump } from '../types';
+import { 
+  ChannelParams, 
+  WaterSurfaceProfileResults,
+  FlowRegime 
+} from '../types';
 import { useChannelCalculations } from './useChannelCalculations';
 import { validateAllInputs } from '../validators/inputValidators';
 
@@ -15,12 +19,12 @@ import { validateAllInputs } from '../validators/inputValidators';
  * Hook for managing calculation state and actions with Redux
  * 
  * This hook provides methods to trigger water surface profile calculations
- * while managing the application state through Redux.
+ * using the standardized data types, with proper Redux state management.
  */
 export const useCalculation = () => {
   const dispatch = useDispatch();
   const { 
-    calculateWaterSurfaceProfile,
+    calculateDetailedProfile,
     getCriticalDepth,
     getNormalDepth
   } = useChannelCalculations();
@@ -29,8 +33,7 @@ export const useCalculation = () => {
   const { 
     channelParams,
     isCalculating, 
-    results, 
-    hydraulicJump,
+    detailedResults,
     error 
   } = useSelector((state: RootState) => state.calculator);
 
@@ -61,23 +64,30 @@ export const useCalculation = () => {
         updatedParams.normalDepth = getNormalDepth(updatedParams);
       }
       
-      // Calculate water surface profile
-      const { results, hydraulicJump } = await calculateWaterSurfaceProfile(updatedParams);
+      // Calculate detailed water surface profile
+      const result = await calculateDetailedProfile(updatedParams);
+      
+      if (result.error) {
+        dispatch(calculationFailure(result.error));
+        return null;
+      }
+      
+      if (!result.results) {
+        dispatch(calculationFailure("Calculation produced no results"));
+        return null;
+      }
       
       // Update Redux state with results
-      dispatch(calculationSuccess({
-        results,
-        hydraulicJump
-      }));
+      dispatch(setWaterSurfaceResults(result.results));
       
-      return { results, hydraulicJump };
+      return result.results;
     } catch (error) {
       // Handle calculation error
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       dispatch(calculationFailure(errorMessage));
       return null;
     }
-  }, [dispatch, channelParams, calculateWaterSurfaceProfile, getCriticalDepth, getNormalDepth]);
+  }, [dispatch, channelParams, calculateDetailedProfile, getCriticalDepth, getNormalDepth]);
 
   /**
    * Check if calculation can proceed based on current parameters
@@ -98,7 +108,7 @@ export const useCalculation = () => {
    * Get the channel slope classification based on normal and critical depths
    */
   const getChannelClassification = useCallback((): 'mild' | 'critical' | 'steep' | 'unknown' => {
-    if (!results.length || !channelParams.normalDepth || !channelParams.criticalDepth) {
+    if (!detailedResults || !channelParams.normalDepth || !channelParams.criticalDepth) {
       return 'unknown';
     }
     
@@ -107,17 +117,43 @@ export const useCalculation = () => {
     if (normalDepth > criticalDepth) return 'mild';
     if (normalDepth < criticalDepth) return 'steep';
     return 'critical';
-  }, [results, channelParams]);
+  }, [detailedResults, channelParams]);
+
+  /**
+   * Get the predominant flow regime for the profile
+   */
+  const getFlowRegime = useCallback((): FlowRegime | undefined => {
+    if (!detailedResults?.flowProfile || detailedResults.flowProfile.length === 0) {
+      return undefined;
+    }
+    
+    // Determine based on Froude numbers in the profile
+    let subcriticalCount = 0;
+    let supercriticalCount = 0;
+    
+    detailedResults.flowProfile.forEach(point => {
+      if (point.froudeNumber < 1) subcriticalCount++;
+      else supercriticalCount++;
+    });
+    
+    if (subcriticalCount > supercriticalCount) {
+      return FlowRegime.SUBCRITICAL;
+    } else if (supercriticalCount > subcriticalCount) {
+      return FlowRegime.SUPERCRITICAL;
+    } else {
+      return FlowRegime.CRITICAL;
+    }
+  }, [detailedResults]);
 
   return {
     runCalculation,
     resetCalculation,
     isCalculating,
-    results,
-    hydraulicJump,
+    results: detailedResults,
     error,
     canCalculate,
-    getChannelClassification
+    getChannelClassification,
+    getFlowRegime
   };
 };
 
