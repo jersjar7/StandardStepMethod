@@ -48,7 +48,9 @@ water-surface-app/
 │   │   │   │   └── calculatorSlice.ts          # Redux slice for calculator
 │   │   │   ├── types/                          # Type definitions for calculator
 │   │   │   │   ├── hydraulicJumpTypes.ts       # Hydraulic jump specific types
-│   │   │   │   └── index.ts                    # General calculator types
+│   │   │   │   ├── index.ts                    # General calculator types
+│   │   │   │   ├── README.md                   # Documentation for water surface profile results
+│   │   │   │   └── resultTypes.ts              # General result types
 │   │   │   ├── utils/                          # Calculation utilities
 │   │   │   │   ├── hydraulics/                 # Hydraulic calculations
 │   │   │   │   │   ├── channelGeometry.ts      # Area, wetted perimeter, top width
@@ -56,23 +58,26 @@ water-surface-app/
 │   │   │   │   │   ├── criticalFlow.ts         # Critical depth calculations
 │   │   │   │   │   ├── normalFlow.ts           # Normal depth calculations
 │   │   │   │   │   ├── hydraulicJump.ts        # Hydraulic jump calculations
+│   │   │   │   │   ├── standardStep.ts         # Standard step implementation
+│   │   │   │   │   ├── README.md               # Documentation for standard step method
 │   │   │   │   │   ├── standardStep/           # Modularized standard step method
-│   │   │   │   │   │   ├── index.ts            # Main exports and entry point
-│   │   │   │   │   │   ├── types.ts            # Type definitions
-│   │   │   │   │   │   ├── jumpDetector.ts     # Hydraulic jump detection utilities
-│   │   │   │   │   │   ├── transitionDetector.ts # Profile transitions detection
-│   │   │   │   │   │   ├── profileUtils.ts     # Profile classification utilities
+│   │   │   │   │   │   ├── profileCalculator/  # Profile calculation modules
+│   │   │   │   │   │   │   ├── index.ts        # Main profile calculator exports
+│   │   │   │   │   │   │   ├── advancedCalculations.ts # Advanced options
+│   │   │   │   │   │   │   ├── coreCalculator.ts # Core calculation logic
+│   │   │   │   │   │   │   ├── initialConditions.ts # Setup for calculations
+│   │   │   │   │   │   │   └── profileInterpolation.ts # Profile smoothing
 │   │   │   │   │   │   ├── calculationCache.ts # Caching for expensive calculations
 │   │   │   │   │   │   ├── calculationOptimizer.ts # Performance optimization
+│   │   │   │   │   │   ├── index.ts            # Main exports and entry point
+│   │   │   │   │   │   ├── jumpDetector.ts     # Hydraulic jump detection utilities
+│   │   │   │   │   │   ├── profileUtils.ts     # Profile classification utilities
+│   │   │   │   │   │   ├── profileCalculator.ts # Profile calculator utilities
 │   │   │   │   │   │   ├── stepCalculator.ts   # Single step calculation logic
-│   │   │   │   │   │   └── profileCalculator/  # Profile calculation modules
-│   │   │   │   │   │       ├── index.ts        # Main profile calculator exports
-│   │   │   │   │   │       ├── coreCalculator.ts # Core calculation logic
-│   │   │   │   │   │       ├── initialConditions.ts # Setup for calculations
-│   │   │   │   │   │       ├── advancedCalculations.ts # Advanced options
-│   │   │   │   │   │       └── profileInterpolation.ts # Profile smoothing
+│   │   │   │   │   │   ├── transitionDetector.ts # Profile transitions detection
+│   │   │   │   │   │   └──types.ts             # Type definitions
 │   │   │   │   │   └── index.ts                # Re-exports for compatibility
-│   │   │   │   └── helpers.ts                  # Helper functions
+│   │   │   │   └──  helpers.ts                 # Helper functions
 │   │   │   ├── validators/                     # Input validation
 │   │   │   │   └── inputValidators.ts          # Validation functions
 │   │   │   └── Calculator.tsx                  # Main calculator component
