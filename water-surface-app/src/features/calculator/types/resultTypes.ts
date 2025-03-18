@@ -190,3 +190,11 @@ import {
   export function getProfileTypeDescription(profileType: ProfileType): string {
     return PROFILE_TYPE_DESCRIPTIONS[profileType] || 'Unknown Profile Type';
   }
+
+  /**
+   * CalculationResultWithError
+   */
+  export interface CalculationResultWithError {
+    results?: WaterSurfaceProfileResults;
+    error?: string;
+  }

@@ -1,4 +1,4 @@
-import { ChannelParams } from '../../stores/calculatorSlice';
+import { ChannelParams } from '../../types';
 
 /**
  * Calculates the cross-sectional area of flow for a given water depth

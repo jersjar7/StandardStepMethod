@@ -1,4 +1,4 @@
-import { ChannelParams } from '../../stores/calculatorSlice';
+import { ChannelParams } from '../../types';
 import { calculateArea, calculateTopWidth } from './channelGeometry';
 import { calculateVelocity, calculateFroudeNumber } from './flowParameters';
 

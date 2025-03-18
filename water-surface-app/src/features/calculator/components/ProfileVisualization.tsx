@@ -1,10 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { 
   WaterSurfaceProfileResults, 
   UnitSystem,
-  ProfileType,
-  FlowRegime
 } from '../types';
 import { PROFILE_TYPE_DESCRIPTIONS, CHANNEL_SLOPE_DESCRIPTIONS } from '../stores/types/resultTypes';
 import { formatWithUnit, getParameterLabels } from '../../../utils/formatters';

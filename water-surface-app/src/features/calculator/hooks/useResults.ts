@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../stores';
-import { CalculationResult, HydraulicJump, ProfileType } from '../types';
+import { ProfileType, FlowDepthPoint, FlowRegime } from '../types';
 import { ExportService } from '../../../services/exportService';
 
 /**
@@ -11,92 +11,101 @@ import { ExportService } from '../../../services/exportService';
  * the water surface profile calculation results.
  */
 export const useResults = () => {
-  const { results, hydraulicJump, channelParams } = useSelector((state: RootState) => state.calculator);
+  const { detailedResults, channelParams } = useSelector((state: RootState) => state.calculator);
   
   // State for selected result (for detailed view or cross-section analysis)
-  const [selectedResultIndex, setSelectedResultIndex] = useState<number>(0);
+  const [selectedPointIndex, setSelectedPointIndex] = useState<number>(0);
   
-  // Get the currently selected result
-  const selectedResult = useMemo(() => {
-    if (!results || results.length === 0) return null;
-    return results[Math.min(selectedResultIndex, results.length - 1)];
-  }, [results, selectedResultIndex]);
+  // Get the currently selected point
+  const selectedPoint = useMemo(() => {
+    if (!detailedResults?.flowProfile || detailedResults.flowProfile.length === 0) return null;
+    return detailedResults.flowProfile[Math.min(selectedPointIndex, detailedResults.flowProfile.length - 1)];
+  }, [detailedResults, selectedPointIndex]);
   
   /**
-   * Select a specific calculation result by index
-   * @param index Result index to select
+   * Select a specific flow point by index
+   * @param index Point index to select
    */
-  const selectResult = useCallback((index: number) => {
-    if (results && index >= 0 && index < results.length) {
-      setSelectedResultIndex(index);
+  const selectPoint = useCallback((index: number) => {
+    if (detailedResults?.flowProfile && index >= 0 && index < detailedResults.flowProfile.length) {
+      setSelectedPointIndex(index);
     }
-  }, [results]);
+  }, [detailedResults]);
   
   /**
-   * Select a specific calculation result by station
+   * Select a specific flow point by station
    * @param station Station value to find
    */
-  const selectResultByStation = useCallback((station: number) => {
-    if (!results || results.length === 0) return;
+  const selectPointByStation = useCallback((station: number) => {
+    if (!detailedResults?.flowProfile || detailedResults.flowProfile.length === 0) return;
     
-    // Find the result closest to the requested station
+    // Find the point closest to the requested station
     let closestIndex = 0;
-    let minDistance = Math.abs(results[0].station - station);
+    let minDistance = Math.abs(detailedResults.flowProfile[0].x - station);
     
-    for (let i = 1; i < results.length; i++) {
-      const distance = Math.abs(results[i].station - station);
+    for (let i = 1; i < detailedResults.flowProfile.length; i++) {
+      const distance = Math.abs(detailedResults.flowProfile[i].x - station);
       if (distance < minDistance) {
         minDistance = distance;
         closestIndex = i;
       }
     }
     
-    setSelectedResultIndex(closestIndex);
-  }, [results]);
+    setSelectedPointIndex(closestIndex);
+  }, [detailedResults]);
   
   /**
    * Get results summary statistics
    */
   const getResultsSummary = useMemo(() => {
-    if (!results || results.length === 0) {
+    if (!detailedResults?.flowProfile || detailedResults.flowProfile.length === 0) {
       return null;
     }
     
+    const flowProfile = detailedResults.flowProfile;
+    
     // Calculate min, max, and average values for key parameters
     const summary = {
-      minDepth: Math.min(...results.map(r => r.depth)),
-      maxDepth: Math.max(...results.map(r => r.depth)),
-      avgDepth: results.reduce((sum, r) => sum + r.depth, 0) / results.length,
+      minDepth: Math.min(...flowProfile.map(p => p.y)),
+      maxDepth: Math.max(...flowProfile.map(p => p.y)),
+      avgDepth: flowProfile.reduce((sum, p) => sum + p.y, 0) / flowProfile.length,
       
-      minVelocity: Math.min(...results.map(r => r.velocity)),
-      maxVelocity: Math.max(...results.map(r => r.velocity)),
-      avgVelocity: results.reduce((sum, r) => sum + r.velocity, 0) / results.length,
+      minVelocity: Math.min(...flowProfile.map(p => p.velocity)),
+      maxVelocity: Math.max(...flowProfile.map(p => p.velocity)),
+      avgVelocity: flowProfile.reduce((sum, p) => sum + p.velocity, 0) / flowProfile.length,
       
-      minFroude: Math.min(...results.map(r => r.froudeNumber)),
-      maxFroude: Math.max(...results.map(r => r.froudeNumber)),
-      avgFroude: results.reduce((sum, r) => sum + r.froudeNumber, 0) / results.length,
+      minFroude: Math.min(...flowProfile.map(p => p.froudeNumber)),
+      maxFroude: Math.max(...flowProfile.map(p => p.froudeNumber)),
+      avgFroude: flowProfile.reduce((sum, p) => sum + p.froudeNumber, 0) / flowProfile.length,
       
-      channelLength: results[results.length - 1].station - results[0].station,
-      criticalDepth: results[0]?.criticalDepth || 0,
-      normalDepth: results[0]?.normalDepth || 0
+      channelLength: flowProfile[flowProfile.length - 1].x - flowProfile[0].x,
+      criticalDepth: detailedResults.criticalDepth || flowProfile[0].criticalDepth,
+      normalDepth: detailedResults.normalDepth || flowProfile[0].normalDepth
     };
     
     return summary;
-  }, [results]);
+  }, [detailedResults]);
   
   /**
    * Get the profile type based on depth, critical depth, and normal depth
    */
   const getProfileType = useMemo((): ProfileType => {
-    if (!results || results.length === 0 || !channelParams) {
+    if (!detailedResults?.flowProfile || detailedResults.flowProfile.length === 0 || !channelParams) {
       return ProfileType.UNKNOWN;
     }
     
+    // First check if we already have a profile type in the results
+    if (detailedResults.profileType) {
+      return detailedResults.profileType;
+    }
+    
+    // If not, determine it based on depths
     const { criticalDepth, normalDepth } = channelParams;
     if (!criticalDepth || !normalDepth) return ProfileType.UNKNOWN;
     
     // Calculate average depth for classification
-    const avgDepth = results.reduce((sum, r) => sum + r.depth, 0) / results.length;
+    const flowProfile = detailedResults.flowProfile;
+    const avgDepth = flowProfile.reduce((sum, p) => sum + p.y, 0) / flowProfile.length;
     
     // Classify based on depth relationships
     if (normalDepth > criticalDepth) {
@@ -115,82 +124,95 @@ export const useResults = () => {
       if (avgDepth < criticalDepth) return ProfileType.C3;
       return ProfileType.C2;
     }
-  }, [results, channelParams]);
+  }, [detailedResults, channelParams]);
   
   /**
    * Determine if the flow is subcritical, critical, or supercritical
    */
-  const getFlowRegime = useMemo(() => {
-    if (!results || results.length === 0) {
+  const getFlowRegime = useMemo((): FlowRegime | 'mixed' | 'unknown' => {
+    if (!detailedResults?.flowProfile || detailedResults.flowProfile.length === 0) {
       return 'unknown';
     }
     
-    // Check if all points are subcritical, all supercritical, or mixed
-    const hasSubcritical = results.some(r => r.froudeNumber < 0.95);
-    const hasSupercritical = results.some(r => r.froudeNumber > 1.05);
+    // Check if we already have flow regime in the results
+    if ('flowRegime' in detailedResults && detailedResults.flowRegime !== undefined) {
+      // Use type assertion to tell TypeScript this is a FlowRegime
+      return detailedResults.flowRegime as FlowRegime;
+    }
     
-    if (hasSubcritical && !hasSupercritical) return 'subcritical';
-    if (hasSupercritical && !hasSubcritical) return 'supercritical';
+    // Check if all points are subcritical, all supercritical, or mixed
+    const flowProfile = detailedResults.flowProfile;
+    const hasSubcritical = flowProfile.some(p => p.froudeNumber < 0.95);
+    const hasSupercritical = flowProfile.some(p => p.froudeNumber > 1.05);
+    
+    if (hasSubcritical && !hasSupercritical) return FlowRegime.SUBCRITICAL;
+    if (hasSupercritical && !hasSubcritical) return FlowRegime.SUPERCRITICAL;
     if (hasSubcritical && hasSupercritical) return 'mixed';
-    return 'critical';
-  }, [results]);
+    return FlowRegime.CRITICAL;
+  }, [detailedResults]);
   
   /**
    * Export calculation results to CSV
    */
   const exportToCsv = useCallback(() => {
-    if (!results || results.length === 0 || !channelParams) return;
+    if (!detailedResults?.flowProfile || detailedResults.flowProfile.length === 0 || !channelParams) return;
     
-    const csvContent = ExportService.exportToCSV(results, channelParams);
+    const csvContent = ExportService.exportToCSV(detailedResults.flowProfile, channelParams);
     ExportService.downloadCSV(csvContent);
-  }, [results, channelParams]);
+  }, [detailedResults, channelParams]);
   
   /**
    * Export calculation results to JSON
    */
   const exportToJson = useCallback(() => {
-    if (!results || results.length === 0 || !channelParams) return;
+    if (!detailedResults?.flowProfile || detailedResults.flowProfile.length === 0 || !channelParams) return;
     
-    const jsonContent = ExportService.exportToJSON(results, channelParams);
+    const jsonContent = ExportService.exportToJSON(detailedResults.flowProfile, channelParams);
     ExportService.downloadJSON(jsonContent);
-  }, [results, channelParams]);
+  }, [detailedResults, channelParams]);
   
   /**
    * Generate and download a report
    */
   const generateReport = useCallback(() => {
-    if (!results || results.length === 0 || !channelParams) return;
+    if (!detailedResults?.flowProfile || detailedResults.flowProfile.length === 0 || !channelParams) return;
     
-    const reportContent = ExportService.generateReport(results, channelParams);
+    const reportContent = ExportService.generateReport(detailedResults.flowProfile, channelParams);
     ExportService.downloadReport(reportContent);
-  }, [results, channelParams]);
+  }, [detailedResults, channelParams]);
   
   /**
    * Get results filtered for visualization
    * Reduces the number of points for smoother rendering
    */
-  const getFilteredResults = useCallback((maxPoints: number = 100): CalculationResult[] => {
-    if (!results || results.length === 0) return [];
-    if (results.length <= maxPoints) return results;
+  const getFilteredResults = useCallback((maxPoints: number = 100): FlowDepthPoint[] => {
+    if (!detailedResults?.flowProfile || detailedResults.flowProfile.length === 0) return [];
+    
+    const flowProfile = detailedResults.flowProfile;
+    if (flowProfile.length <= maxPoints) return flowProfile;
     
     // Sample the results to reduce the number of points
-    const step = Math.ceil(results.length / maxPoints);
-    return results.filter((_, index) => index % step === 0);
-  }, [results]);
+    const step = Math.ceil(flowProfile.length / maxPoints);
+    return flowProfile.filter((_, index) => index % step === 0);
+  }, [detailedResults]);
   
   /**
    * Get hydraulic jump information with additional details
    */
   const getHydraulicJumpDetails = useMemo(() => {
-    if (!hydraulicJump || !hydraulicJump.occurs || !results) {
+    if (!detailedResults?.hydraulicJump || 
+        !detailedResults.hydraulicJump.occurs || 
+        !detailedResults.flowProfile) {
       return null;
     }
     
     // Get Froude number at the jump
-    const jump = hydraulicJump as Required<HydraulicJump>;
-    const upstream = results.find(r => Math.abs(r.station - jump.station) < 0.01);
+    const jump = detailedResults.hydraulicJump;
+    const upstream = detailedResults.flowProfile.find(p => 
+      Math.abs(p.x - (jump.station || 0)) < 0.01
+    );
     
-    if (!upstream) return hydraulicJump;
+    if (!upstream) return jump;
     
     // Classify hydraulic jump type based on upstream Froude number
     let jumpType = 'Unknown';
@@ -209,18 +231,18 @@ export const useResults = () => {
     
     // Return enhanced hydraulic jump info
     return {
-      ...hydraulicJump,
+      ...jump,
       jumpType,
       energyLoss,
       froudeNumber: fr
     };
-  }, [hydraulicJump, results]);
+  }, [detailedResults]);
   
   return {
-    results,
-    selectedResult,
-    selectResult,
-    selectResultByStation,
+    results: detailedResults?.flowProfile || [],
+    selectedPoint,
+    selectPoint,
+    selectPointByStation,
     getResultsSummary,
     getProfileType,
     getFlowRegime,
@@ -228,7 +250,8 @@ export const useResults = () => {
     exportToJson,
     generateReport,
     getFilteredResults,
-    getHydraulicJumpDetails
+    getHydraulicJumpDetails,
+    hydraulicJump: detailedResults?.hydraulicJump
   };
 };
 

@@ -1,4 +1,4 @@
-import { ChannelParams } from '../../../stores/calculatorSlice';
+import { ChannelParams } from '../../../types';
 import { FlowDepthPoint, ProfileType } from './types';
 import { detectFlowTransitions, determineFlowRegime } from './transitionDetector';
 
@@ -225,6 +225,11 @@ export function getProfileDescription(
   details += `\nDepth: ${stats.minDepth.toFixed(3)} - ${stats.maxDepth.toFixed(3)} m`;
   details += `\nVelocity: ${stats.minVelocity.toFixed(3)} - ${stats.maxVelocity.toFixed(3)} m/s`;
   details += `\nFroude: ${stats.minFroude.toFixed(3)} - ${stats.maxFroude.toFixed(3)}`;
+  details += `\nStart Station: ${firstPoint.x.toFixed(3)} m`;
+  details += `\nEnd Station: ${lastPoint.x.toFixed(3)} m`;
+  details += `\nEnd Depth: ${lastPoint.y.toFixed(3)} m`;
+  details += `\nEnd Velocity: ${lastPoint.velocity.toFixed(3)} m/s`;
+  details += `\nEnd Froude Number: ${lastPoint.froudeNumber.toFixed(3)}`;
   
   return { classification, description, details };
 }
@@ -264,45 +269,48 @@ export function simplifyProfile(
   }
   
   // Add transition points if they're not already included
-  for (const transition of transitions) {
-    // Find closest existing point in result
-    let closestIndex = -1;
-    let minDistance = Number.MAX_VALUE;
-    
-    for (let i = 0; i < result.length; i++) {
-      const distance = Math.abs(result[i].x - transition.station);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = i;
-      }
+for (const transition of transitions) {
+  let minDistance = Number.MAX_VALUE;
+  let closestPointIndex = -1;
+
+  for (let i = 0; i < result.length; i++) {
+    const distance = Math.abs(result[i].x - transition.station);
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestPointIndex = i;
     }
-    
-    // If closest point is too far, add a point at the transition
-    if (minDistance > (sortedProfile[1].x - sortedProfile[0].x) * 2) {
-      // Find the points in original profile that bracket the transition
-      for (let i = 0; i < sortedProfile.length - 1; i++) {
-        if (sortedProfile[i].x <= transition.station && 
-            sortedProfile[i+1].x >= transition.station) {
-          // Interpolate to get properties at transition station
-          const t = (transition.station - sortedProfile[i].x) / 
-                    (sortedProfile[i+1].x - sortedProfile[i].x);
-          
-          const interpolatedPoint: FlowDepthPoint = {
-            x: transition.station,
-            y: sortedProfile[i].y + t * (sortedProfile[i+1].y - sortedProfile[i].y),
-            velocity: sortedProfile[i].velocity + t * (sortedProfile[i+1].velocity - sortedProfile[i].velocity),
-            froudeNumber: 1.0, // At transition, Fr = 1
-            specificEnergy: sortedProfile[i].specificEnergy + t * (sortedProfile[i+1].specificEnergy - sortedProfile[i].specificEnergy),
-            criticalDepth: sortedProfile[i].criticalDepth,
-            normalDepth: sortedProfile[i].normalDepth
-          };
-          
+  }
+
+  // If closest point is too far or not already included, add an interpolated point
+  if (minDistance > (sortedProfile[1].x - sortedProfile[0].x) * 2) {
+    // Find the points in original profile that bracket the transition
+    for (let i = 0; i < sortedProfile.length - 1; i++) {
+      if (sortedProfile[i].x <= transition.station && 
+          sortedProfile[i+1].x >= transition.station) {
+        // Interpolate to get properties at transition station
+        const t = (transition.station - sortedProfile[i].x) / 
+                  (sortedProfile[i+1].x - sortedProfile[i].x);
+        
+        const interpolatedPoint: FlowDepthPoint = {
+          x: transition.station,
+          y: sortedProfile[i].y + t * (sortedProfile[i+1].y - sortedProfile[i].y),
+          velocity: sortedProfile[i].velocity + t * (sortedProfile[i+1].velocity - sortedProfile[i].velocity),
+          froudeNumber: 1.0, // At transition, Fr = 1
+          specificEnergy: sortedProfile[i].specificEnergy + t * (sortedProfile[i+1].specificEnergy - sortedProfile[i].specificEnergy),
+          criticalDepth: sortedProfile[i].criticalDepth,
+          normalDepth: sortedProfile[i].normalDepth,
+          topWidth: sortedProfile[i].topWidth + t * (sortedProfile[i+1].topWidth - sortedProfile[i].topWidth) 
+        };
+        
+        // If the transition point is not already in the result, add it
+        if (closestPointIndex === -1) {
           result.push(interpolatedPoint);
-          break;
         }
+        break;
       }
     }
   }
+}
   
   // Always include last point if not already included
   const lastPoint = sortedProfile[sortedProfile.length - 1];

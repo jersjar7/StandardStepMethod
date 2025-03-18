@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChannelParams } from '../../stores/calculatorSlice';
+import { ChannelParams } from '../../types';
 
 interface FlowInputsProps {
   formValues: ChannelParams;

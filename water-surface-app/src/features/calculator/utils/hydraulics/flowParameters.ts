@@ -1,4 +1,4 @@
-import { ChannelParams } from '../../stores/calculatorSlice';
+import { ChannelParams } from '../../types';
 import { calculateArea, calculateTopWidth, calculateHydraulicRadius } from './channelGeometry';
 
 // Gravitational acceleration constant

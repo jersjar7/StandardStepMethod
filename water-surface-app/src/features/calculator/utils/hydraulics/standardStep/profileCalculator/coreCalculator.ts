@@ -1,5 +1,5 @@
-import { ChannelParams } from '../../../../stores/calculatorSlice';
-import { calculateArea } from '../../channelGeometry';
+import { ChannelParams } from '../../../../types';
+import { calculateArea, calculateTopWidth } from '../../channelGeometry';
 import { calculateVelocity, calculateFroudeNumber, calculateSpecificEnergy } from '../../flowParameters';
 import { detectHydraulicJump } from '../jumpDetector';
 import { calculateNextDepth } from '../stepCalculator';
@@ -32,6 +32,7 @@ export function calculateInitialPoint(
   const velocity = calculateVelocity(params.discharge, area);
   const froudeNumber = calculateFroudeNumber(velocity, depth, params);
   const specificEnergy = calculateSpecificEnergy(depth, velocity, params);
+  const topWidth = calculateTopWidth(depth, params); 
   
   return {
     x: position,
@@ -40,7 +41,8 @@ export function calculateInitialPoint(
     froudeNumber,
     specificEnergy,
     criticalDepth,
-    normalDepth
+    normalDepth,
+    topWidth
   };
 }
 

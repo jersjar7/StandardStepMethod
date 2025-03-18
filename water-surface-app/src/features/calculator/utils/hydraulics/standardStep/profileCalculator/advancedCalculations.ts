@@ -1,7 +1,11 @@
-import { ChannelParams } from '../../../../stores/calculatorSlice';
+import { ChannelParams } from '../../../../types';
 import { calculateCriticalDepth } from '../../criticalFlow';
 import { calculateNormalDepth } from '../../normalFlow';
-import { WaterSurfaceProfileResults, FlowDepthPoint } from '../types';
+import { 
+  WaterSurfaceProfileResults, 
+  FlowDepthPoint, 
+  ProfileType 
+} from '../types';
 import { detectHydraulicJump } from '../jumpDetector';
 import { calculateWaterSurfaceProfile } from './coreCalculator';
 
@@ -101,7 +105,7 @@ export function calculateBidirectionalProfile(
   
   return {
     flowProfile: mergedProfile,
-    profileType: "Mixed Profile",
+    profileType: ProfileType.MIXED,
     channelType: downstreamResults.channelType, // Use the same channel classification
     criticalDepth,
     normalDepth: calculateNormalDepth(params),
@@ -241,7 +245,7 @@ export function calculateVariableRoughnessProfile(
   
   return {
     flowProfile: sortedProfile,
-    profileType: "Variable Roughness Profile",
+    profileType: ProfileType.MIXED,
     channelType: normalDepth > criticalDepth ? 'mild' : 'steep',
     criticalDepth: calculateCriticalDepth(baseParams),
     normalDepth: calculateNormalDepth(baseParams), // Average normal depth
@@ -380,6 +384,7 @@ export function calculateAdaptiveResolutionProfile(
   // Return updated result
   return {
     ...baseResult,
+    profileType: ProfileType.MIXED,
     flowProfile: mergedProfile
   };
 }

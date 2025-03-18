@@ -3,7 +3,6 @@ import {
   WaterSurfaceProfileResults, 
   FlowDepthPoint,
   UnitSystem,
-  FlowRegime
 } from '../types';
 import { getFlowRegimeDescription } from '../stores/types/resultTypes';
 import { formatWithUnit, getParameterLabels } from '../../../utils/formatters';

@@ -1,8 +1,8 @@
-import { ChannelParams } from '../../../stores/calculatorSlice';
+import { ChannelParams } from '../../../types';
 import { FlowDepthPoint, WaterSurfaceProfileResults, ProfileCalculationParams, StepCalculationParams } from './types';
 import { calculateNextDepth, calculateNextDepthNewtonRaphson } from './stepCalculator';
 import { calculatePropertiesAtDepth } from './stepCalculator';
-import { calculateArea } from '../channelGeometry';
+import { calculateArea, calculateTopWidth } from '../channelGeometry';
 import { calculateVelocity, calculateFroudeNumber, calculateSpecificEnergy } from '../flowParameters';
 
 /**
@@ -292,7 +292,8 @@ export class StandardStepOptimizer {
       froudeNumber,
       specificEnergy,
       criticalDepth,
-      normalDepth
+      normalDepth,
+      topWidth: calculateTopWidth(initialDepth, params)
     };
     
     // Add initial point to the profile
@@ -363,7 +364,8 @@ export class StandardStepOptimizer {
         froudeNumber: nextProps.froudeNumber,
         specificEnergy: nextProps.specificEnergy,
         criticalDepth,
-        normalDepth
+        normalDepth,
+        topWidth: calculateTopWidth(currentDepth, params)
       };
       
       // Add point to the profile

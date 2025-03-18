@@ -1,7 +1,6 @@
 import { ChannelParams } from '../../types';
 import { 
   HydraulicJump, 
-  HydraulicJumpDetails,
   createHydraulicJump,
   enhanceJumpWithDetails,
   classifyJump

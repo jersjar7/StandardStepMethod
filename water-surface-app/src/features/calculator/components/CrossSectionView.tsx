@@ -284,11 +284,6 @@ const CrossSectionView: React.FC<CrossSectionViewProps> = ({
   // Select the flow point to display
   const flowPoint = selectedFlowPoint || results.flowProfile[0];
   
-  // Find the appropriate result for the selected point
-  const selectedResult = results.flowProfile.find(point => 
-    Math.abs(point.x - (flowPoint?.x || 0)) < 0.01
-  ) || results.flowProfile[0];
-  
   return (
     <div className="bg-white shadow rounded-lg p-6">
       <h3 className="text-lg font-medium text-gray-900 mb-4">Channel Cross Section</h3>

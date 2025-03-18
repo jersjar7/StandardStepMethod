@@ -3,7 +3,6 @@ import {
   WaterSurfaceProfileResults,
   UnitSystem
 } from '../types';
-import { formatWithUnit } from '../../../utils/formatters';
 
 interface WaterSurfaceVisualizationProps {
   results: WaterSurfaceProfileResults;

@@ -1,4 +1,4 @@
-import { ChannelParams } from '../../../../stores/calculatorSlice';
+import { ChannelParams } from '../../../../types';
 import { calculateCriticalDepth } from '../../criticalFlow';
 import { calculateNormalDepth, classifyChannelSlope } from '../../normalFlow';
 import { ProfileCalculationParams } from '../types';

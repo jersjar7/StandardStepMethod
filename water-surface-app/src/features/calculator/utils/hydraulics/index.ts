@@ -9,13 +9,12 @@
 import { 
   ChannelParams, 
   FlowDepthPoint, 
-  ProfileType, 
   FlowRegime,
   WaterSurfaceProfileResults,
   DetailedWaterSurfaceResults,
-  CalculationResultWithError,
   enhanceWithDetails
 } from '../../types';
+import { CalculationResultWithError } from '../../../calculator/types/resultTypes';
 
 // Import core calculation components
 import { 

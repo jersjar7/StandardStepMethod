@@ -11,14 +11,12 @@
 
 import { 
   ChannelParams, 
-  FlowDepthPoint,
-  HydraulicJump,
   ProfileType,
   FlowRegime,
   WaterSurfaceProfileResults,
   DetailedWaterSurfaceResults,
-  CalculationResultWithError
 } from '../../../types';
+import { CalculationResultWithError } from '../../../../calculator/types/resultTypes';
 
 // Import core calculation components
 import { 

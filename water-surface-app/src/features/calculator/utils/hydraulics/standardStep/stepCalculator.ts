@@ -1,4 +1,4 @@
-import { ChannelParams } from '../../../stores/calculatorSlice';
+import { ChannelParams } from '../../../types';
 import { calculateArea, calculateWetPerimeter } from '../channelGeometry';
 import { calculateVelocity, calculateSpecificEnergy, calculateFrictionSlope } from '../flowParameters';
 import { StepCalculationParams, CalculationPoint } from './types';

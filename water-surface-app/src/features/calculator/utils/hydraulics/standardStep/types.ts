@@ -9,7 +9,6 @@
 import {
   ChannelParams,
   FlowDepthPoint,
-  HydraulicJump,
   CalculationDirection,
   ChannelSlope,
   ProfileType,

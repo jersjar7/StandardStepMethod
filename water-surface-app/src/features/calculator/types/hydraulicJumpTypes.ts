@@ -140,6 +140,37 @@ export function createHydraulicJump(
 }
 
 /**
+ * Converts various jump representations to a standard hydraulic jump
+ * @param jump Input jump data
+ * @returns Standardized hydraulic jump
+ */
+export function convertToStandardHydraulicJump(
+  jump: any
+): HydraulicJump {
+  // If already a valid HydraulicJump, return as-is
+  if (jump && 'occurs' in jump) {
+    return jump;
+  }
+
+  // If no jump detected or invalid input
+  if (!jump || !jump.station || !jump.upstreamDepth || !jump.downstreamDepth) {
+    return { occurs: false };
+  }
+
+  // Use createHydraulicJump to standardize the jump
+  return createHydraulicJump({
+    station: jump.station,
+    upstreamDepth: jump.upstreamDepth,
+    downstreamDepth: jump.downstreamDepth,
+    // Optional properties
+    ...(jump.energyLoss !== undefined && { energyLoss: jump.energyLoss }),
+    ...(jump.froudeNumber1 !== undefined && { froudeNumber1: jump.froudeNumber1 }),
+    ...(jump.jumpType !== undefined && { jumpType: jump.jumpType }),
+    ...(jump.length !== undefined && { length: jump.length })
+  });
+}
+
+/**
  * Adds detailed calculations to a basic hydraulic jump
  * @param jump Basic hydraulic jump
  * @param additionalData Additional calculations

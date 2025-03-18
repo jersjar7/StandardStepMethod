@@ -9,7 +9,7 @@
  * - Advanced calculation methods
  */
 
-import { ChannelParams } from '../../../../stores/calculatorSlice';
+import { ChannelParams } from '../../../../types';
 import { WaterSurfaceProfileResults } from '../types';
 
 // Import named exports from each module

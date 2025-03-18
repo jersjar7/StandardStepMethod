@@ -62,7 +62,8 @@ export function interpolateProfileAtStations(
       froudeNumber: p1.froudeNumber + t * (p2.froudeNumber - p1.froudeNumber),
       specificEnergy: p1.specificEnergy + t * (p2.specificEnergy - p1.specificEnergy),
       criticalDepth: p1.criticalDepth,
-      normalDepth: p1.normalDepth
+      normalDepth: p1.normalDepth,
+      topWidth: p1.topWidth + t * (p2.topWidth - p1.topWidth) 
     };
     
     results.push(interpolatedPoint);

@@ -3,14 +3,13 @@ import {
   WaterSurfaceProfileResults,
   ChannelParams,
   DetailedWaterSurfaceResults,
-  CalculationResultWithError
 } from '../types';
 
-// Import the calculation utilities
+// Import the calculation utilities with renamed imports to avoid naming conflicts
 import { 
-  calculateWaterSurfaceProfile as calculationUtil,
-  calculateDetailedProfile,
-  calculateProfileWithErrorHandling
+  calculateWaterSurfaceProfile as waterSurfaceProfileCalculator,
+  calculateDetailedProfile as detailedProfileCalculator,
+  calculateProfileWithErrorHandling as profileErrorHandler
 } from '../utils/hydraulics';
 
 import {
@@ -45,7 +44,7 @@ export const useChannelCalculations = () => {
     
     try {
       // Call the imported utility function to calculate the water surface profile
-      const output: WaterSurfaceProfileResults = calculationUtil(params);
+      const output: WaterSurfaceProfileResults = waterSurfaceProfileCalculator(params);
       
       setIsCalculating(false);
       return output;
@@ -71,7 +70,7 @@ export const useChannelCalculations = () => {
     
     try {
       // Call the detailed calculation function that returns standardized results
-      const result = await Promise.resolve(calculateDetailedProfile(params));
+      const result = await Promise.resolve(detailedProfileCalculator(params));
       
       setIsCalculating(false);
       
@@ -101,7 +100,7 @@ export const useChannelCalculations = () => {
     setError(null);
     
     try {
-      const result = calculateProfileWithErrorHandling(params);
+      const result = profileErrorHandler(params);
       
       setIsCalculating(false);
       
@@ -133,7 +132,7 @@ export const useChannelCalculations = () => {
     
     try {
       // Call the imported utility function to calculate the water surface profile
-      const output = calculationUtil(params);
+      const output = waterSurfaceProfileCalculator(params);
       
       setIsCalculating(false);
       return output;
