@@ -4,11 +4,13 @@ import { ChannelParams } from '../../types';
 interface FlowInputsProps {
   formValues: ChannelParams;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  errors?: Record<string, string>;
 }
 
 const FlowInputs: React.FC<FlowInputsProps> = ({
   formValues,
-  onInputChange
+  onInputChange,
+  errors = {}
 }) => {
   return (
     <div className="col-span-1 md:col-span-2">
@@ -25,8 +27,15 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
             onChange={onInputChange}
             min="0.001"
             step="0.001"
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
+              errors.manningN 
+                ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' 
+                : 'border-gray-300'
+            }`}
           />
+          {errors.manningN && (
+            <p className="mt-2 text-sm text-red-600">{errors.manningN}</p>
+          )}
         </div>
         
         <div>
@@ -40,8 +49,15 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
             onChange={onInputChange}
             min="0.0001"
             step="0.0001"
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
+              errors.channelSlope 
+                ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' 
+                : 'border-gray-300'
+            }`}
           />
+          {errors.channelSlope && (
+            <p className="mt-2 text-sm text-red-600">{errors.channelSlope}</p>
+          )}
         </div>
         
         <div>
@@ -55,8 +71,15 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
             onChange={onInputChange}
             min="0.1"
             step="0.1"
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
+              errors.discharge 
+                ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' 
+                : 'border-gray-300'
+            }`}
           />
+          {errors.discharge && (
+            <p className="mt-2 text-sm text-red-600">{errors.discharge}</p>
+          )}
         </div>
         
         <div>
@@ -70,8 +93,15 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
             onChange={onInputChange}
             min="10"
             step="10"
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
+              errors.length 
+                ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' 
+                : 'border-gray-300'
+            }`}
           />
+          {errors.length && (
+            <p className="mt-2 text-sm text-red-600">{errors.length}</p>
+          )}
         </div>
       </div>
     </div>

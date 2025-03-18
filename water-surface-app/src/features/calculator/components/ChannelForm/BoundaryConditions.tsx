@@ -6,13 +6,15 @@ interface BoundaryConditionsProps {
   formValues: ChannelParams;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onBoundaryConditionChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  errors?: Record<string, string>;
 }
 
 const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
   channelParams,
   formValues,
   onInputChange,
-  onBoundaryConditionChange
+  onBoundaryConditionChange,
+  errors = {}
 }) => {
   // Determine the current boundary condition type
   const getBoundaryConditionType = (): 'critical-downstream' | 'normal-upstream' | 'custom' => {
@@ -60,8 +62,15 @@ const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
               onChange={onInputChange}
               min="0.01"
               step="0.01"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
+                errors.upstreamDepth 
+                  ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' 
+                  : 'border-gray-300'
+              }`}
             />
+            {errors.upstreamDepth && (
+              <p className="mt-2 text-sm text-red-600">{errors.upstreamDepth}</p>
+            )}
           </div>
           
           <div>
@@ -75,8 +84,15 @@ const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
               onChange={onInputChange}
               min="0.01"
               step="0.01"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
+                errors.downstreamDepth 
+                  ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' 
+                  : 'border-gray-300'
+              }`}
             />
+            {errors.downstreamDepth && (
+              <p className="mt-2 text-sm text-red-600">{errors.downstreamDepth}</p>
+            )}
           </div>
         </div>
       )}

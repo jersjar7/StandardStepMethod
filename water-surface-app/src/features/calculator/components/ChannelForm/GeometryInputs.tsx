@@ -5,12 +5,14 @@ interface GeometryInputsProps {
   channelType: string;
   formValues: ChannelParams;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  errors?: Record<string, string>;
 }
 
 const GeometryInputs: React.FC<GeometryInputsProps> = ({
   channelType,
   formValues,
-  onInputChange
+  onInputChange,
+  errors = {}
 }) => {
   return (
     <div className="col-span-1 md:col-span-2">
@@ -29,8 +31,15 @@ const GeometryInputs: React.FC<GeometryInputsProps> = ({
               onChange={onInputChange}
               min="0.1"
               step="0.1"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
+                errors.bottomWidth 
+                  ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' 
+                  : 'border-gray-300'
+              }`}
             />
+            {errors.bottomWidth && (
+              <p className="mt-2 text-sm text-red-600">{errors.bottomWidth}</p>
+            )}
           </div>
         )}
         
@@ -47,8 +56,15 @@ const GeometryInputs: React.FC<GeometryInputsProps> = ({
               onChange={onInputChange}
               min="0.1"
               step="0.1"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
+                errors.sideSlope 
+                  ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' 
+                  : 'border-gray-300'
+              }`}
             />
+            {errors.sideSlope && (
+              <p className="mt-2 text-sm text-red-600">{errors.sideSlope}</p>
+            )}
           </div>
         )}
         
@@ -65,8 +81,15 @@ const GeometryInputs: React.FC<GeometryInputsProps> = ({
               onChange={onInputChange}
               min="0.1"
               step="0.1"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
+                errors.diameter 
+                  ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' 
+                  : 'border-gray-300'
+              }`}
             />
+            {errors.diameter && (
+              <p className="mt-2 text-sm text-red-600">{errors.diameter}</p>
+            )}
           </div>
         )}
       </div>
