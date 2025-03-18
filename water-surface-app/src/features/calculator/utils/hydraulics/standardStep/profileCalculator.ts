@@ -314,7 +314,7 @@ export function calculateWaterSurfaceProfile(
   
   return {
     flowProfile,
-    profileType: profileType.toString(),
+    profileType,
     channelType: channelSlope,
     criticalDepth,
     normalDepth,
@@ -433,7 +433,7 @@ export function calculateBidirectionalProfile(
   
   return {
     flowProfile: mergedProfile,
-    profileType: "Mixed Profile",
+    profileType: ProfileType.MIXED,
     channelType: downstreamResults.channelType, // Use the same channel classification
     criticalDepth,
     normalDepth: calculateNormalDepth(params),

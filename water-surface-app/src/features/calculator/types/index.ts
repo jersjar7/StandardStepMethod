@@ -60,6 +60,7 @@ export enum ProfileType {
   C3 = 'C3',   // Drawdown curve
   
   // Unknown profile
+  MIXED = 'Mixed',
   UNKNOWN = 'Unknown'
 }
 
@@ -147,7 +148,7 @@ export interface ProfileStatistics {
  */
 export interface WaterSurfaceProfileResults {
   flowProfile: FlowDepthPoint[];    // Array of flow depth points
-  profileType: ProfileType | string; // Profile classification using enum or string
+  profileType: ProfileType;         // Profile classification using enum or string
   channelType: string;              // Channel slope classification (mild, steep, critical)
   criticalDepth: number;            // Critical depth for the channel and discharge
   normalDepth: number;              // Normal depth for the channel and discharge

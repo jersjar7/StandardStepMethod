@@ -60,7 +60,7 @@ import {
    */
   export function createStandardResults(
     flowProfile: FlowDepthPoint[],
-    profileType: ProfileType | string,
+    profileType: ProfileType,
     channelType: string,
     criticalDepth: number,
     normalDepth: number,
@@ -132,7 +132,8 @@ import {
     [ProfileType.C1]: 'C1 - Backwater Curve (Critical Slope)',
     [ProfileType.C2]: 'C2 - Uniform Flow (Critical Slope)',
     [ProfileType.C3]: 'C3 - Drawdown Curve (Critical Slope)',
-    [ProfileType.UNKNOWN]: 'Unknown Profile Type'
+    [ProfileType.UNKNOWN]: 'Unknown Profile Type',
+    [ProfileType.MIXED]: 'Mixed Profile Type'
   };
   
   /**
