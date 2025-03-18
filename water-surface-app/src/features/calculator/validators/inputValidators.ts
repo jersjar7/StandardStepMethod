@@ -1,4 +1,4 @@
-import { ChannelParams } from '../stores/calculatorSlice';
+import { ChannelParams } from '../types';
 
 /**
  * Validates the general input parameters that apply to all channel types

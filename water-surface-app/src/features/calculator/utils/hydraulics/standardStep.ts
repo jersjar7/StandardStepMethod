@@ -163,8 +163,8 @@ export function calculateWaterSurfaceProfile(params: ChannelParams): WaterSurfac
       hydraulicJump = calculateHydraulicJump(currentDepth, jumpLocation, params);
       
       // After hydraulic jump, continue with sequent depth
-      if (hydraulicJump) {
-        currentDepth = hydraulicJump.depth2;
+      if (hydraulicJump.occurs) {
+        currentDepth = hydraulicJump.downstreamDepth;
       }
     } else {
       // No jump, update current depth for next iteration

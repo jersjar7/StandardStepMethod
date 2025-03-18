@@ -1,4 +1,4 @@
-import { ChannelParams, CalculationResult } from '../stores/calculatorSlice';
+import { ChannelParams, CalculationResult } from '../types';
 
 /**
  * Helper functions for the calculator feature
