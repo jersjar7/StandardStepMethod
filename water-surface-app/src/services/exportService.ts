@@ -1,4 +1,4 @@
-import { CalculationResult, ChannelParams } from '../features/calculator/stores/calculatorSlice';
+import { ChannelParams, FlowDepthPoint } from '../features/calculator/types';
 
 /**
  * Service for exporting calculation results in various formats
@@ -10,18 +10,17 @@ export class ExportService {
    * @param params Channel parameters
    * @returns CSV string
    */
-  static exportToCSV(results: CalculationResult[], _params: ChannelParams): string {
+  static exportToCSV(results: FlowDepthPoint[], _params: ChannelParams): string {
     // Create header row
     const headers = [
       'Station (m)',
       'Depth (m)',
       'Velocity (m/s)',
-      'Area (m²)',
       'Top Width (m)',
-      'Wetted Perimeter (m)',
-      'Hydraulic Radius (m)',
       'Energy (m)',
-      'Froude Number'
+      'Froude Number',
+      'Critical Depth (m)',
+      'Normal Depth (m)'
     ];
     
     // Create CSV content
@@ -30,15 +29,14 @@ export class ExportService {
     // Add result rows
     results.forEach(result => {
       const row = [
-        result.station.toFixed(2),
-        result.depth.toFixed(3),
-        result.velocity.toFixed(3),
-        result.area.toFixed(3),
-        result.topWidth.toFixed(3),
-        result.wetPerimeter.toFixed(3),
-        result.hydraulicRadius.toFixed(3),
-        result.energy.toFixed(3),
-        result.froudeNumber.toFixed(3)
+        result.x.toFixed(2),                    // Station
+        result.y.toFixed(3),                    // Depth
+        result.velocity.toFixed(3),             // Velocity
+        (result.topWidth || 0).toFixed(3),      // Top Width
+        result.specificEnergy.toFixed(3),       // Energy
+        result.froudeNumber.toFixed(3),         // Froude Number
+        result.criticalDepth.toFixed(3),        // Critical Depth
+        result.normalDepth.toFixed(3)           // Normal Depth
       ];
       
       csvContent += row.join(',') + '\n';
@@ -77,10 +75,19 @@ export class ExportService {
    * @param params Channel parameters
    * @returns JSON string
    */
-  static exportToJSON(results: CalculationResult[], params: ChannelParams): string {
+  static exportToJSON(results: FlowDepthPoint[], params: ChannelParams): string {
     const exportData = {
       channelParams: params,
-      results: results
+      results: results.map(point => ({
+        station: point.x,
+        depth: point.y,
+        velocity: point.velocity,
+        froudeNumber: point.froudeNumber,
+        specificEnergy: point.specificEnergy,
+        criticalDepth: point.criticalDepth,
+        normalDepth: point.normalDepth,
+        topWidth: point.topWidth || 0
+      }))
     };
     
     return JSON.stringify(exportData, null, 2);
@@ -116,16 +123,16 @@ export class ExportService {
    * @param params Channel parameters
    * @returns HTML string with the report
    */
-  static generateReport(results: CalculationResult[], params: ChannelParams): string {
+  static generateReport(results: FlowDepthPoint[], params: ChannelParams): string {
     // Extract key results
-    const criticalDepth = results[0].criticalDepth || 0;
-    const normalDepth = results[0].normalDepth || 0;
+    const criticalDepth = results[0].criticalDepth;
+    const normalDepth = results[0].normalDepth;
     const channelType = normalDepth > criticalDepth ? 'Mild Slope' : 
                          normalDepth < criticalDepth ? 'Steep Slope' : 'Critical Slope';
     
     // Calculate statistics
-    const minDepth = Math.min(...results.map(r => r.depth));
-    const maxDepth = Math.max(...results.map(r => r.depth));
+    const minDepth = Math.min(...results.map(r => r.y));
+    const maxDepth = Math.max(...results.map(r => r.y));
     const minVelocity = Math.min(...results.map(r => r.velocity));
     const maxVelocity = Math.max(...results.map(r => r.velocity));
     const minFroude = Math.min(...results.map(r => r.froudeNumber));
@@ -224,18 +231,18 @@ export class ExportService {
             <th>Station (m)</th>
             <th>Depth (m)</th>
             <th>Velocity (m/s)</th>
-            <th>Area (m²)</th>
             <th>Froude Number</th>
             <th>Energy (m)</th>
+            <th>Top Width (m)</th>
           </tr>
-          ${results.filter((_, i) => i % 5 === 0).map(result => `
+          ${results.filter((_, i) => i % 5 === 0).map(point => `
             <tr>
-              <td>${result.station.toFixed(2)}</td>
-              <td>${result.depth.toFixed(3)}</td>
-              <td>${result.velocity.toFixed(3)}</td>
-              <td>${result.area.toFixed(3)}</td>
-              <td>${result.froudeNumber.toFixed(3)}</td>
-              <td>${result.energy.toFixed(3)}</td>
+              <td>${point.x.toFixed(2)}</td>
+              <td>${point.y.toFixed(3)}</td>
+              <td>${point.velocity.toFixed(3)}</td>
+              <td>${point.froudeNumber.toFixed(3)}</td>
+              <td>${point.specificEnergy.toFixed(3)}</td>
+              <td>${(point.topWidth || 0).toFixed(3)}</td>
             </tr>
           `).join('')}
         </table>

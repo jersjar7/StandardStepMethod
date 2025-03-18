@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CalculationResult, ChannelParams } from '../stores/calculatorSlice';
+import { ChannelParams } from '../types';
+import { FlowDepthPoint } from '../types';
 import { ExportService } from '../../../services/exportService';
 
 interface ExportMenuProps {
-  results: CalculationResult[];
+  results: FlowDepthPoint[];
   channelParams: ChannelParams;
 }
 
