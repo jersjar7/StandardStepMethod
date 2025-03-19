@@ -84,7 +84,8 @@ water-surface-app/
 │   │   │   ├── validators/                     # Input validation
 │   │   │   │   └── inputValidators.ts          # Validation functions
 │   │   │   ├── workers/                        # Web Worker
-│   │   │   │   └── calculationWorker.ts        # Calculation Web Worker
+│   │   │   │   ├── calculationWorker.ts        # Calculation Web Worker
+│   │   │   │   └── testWorker.ts               # Web Worker Test
 │   │   │   └── Calculator.tsx                  # Main calculator component
 │   │   ├── documentation/                      # Documentation feature
 │   │   │   ├── components/

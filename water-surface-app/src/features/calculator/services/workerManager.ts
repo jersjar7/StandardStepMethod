@@ -55,6 +55,7 @@ class WorkerManager {
     resolve: (value: any) => void; 
     reject: (reason: any) => void;
     timeoutId?: number;
+    onProgress?: (progress: number) => void;
   }> = new Map();
   private nextRequestId = 1;
 
@@ -69,21 +70,28 @@ class WorkerManager {
    * Initialize the worker if needed and supported
    */
   private initWorker(): void {
+    console.log("Attempting to initialize worker...");
     // Only create the worker if it's not already created and the browser supports Web Workers
     if (!this.worker && this.isWorkerSupported()) {
       try {
+        console.log("Creating new worker instance...");
         // Create a new worker
         this.worker = new Worker(new URL('../workers/calculationWorker.ts', import.meta.url), { type: 'module' });
         
+        console.log("Worker created, setting up message handlers...");
         // Set up message handler
         this.worker.onmessage = this.handleWorkerMessage.bind(this);
         
         // Set up error handler
         this.worker.onerror = this.handleWorkerError.bind(this);
+        
+        console.log("Worker initialization complete");
       } catch (error) {
         console.error('Failed to initialize calculation worker:', error);
         this.worker = null;
       }
+    } else {
+      console.log("Worker already exists or Web Workers not supported");
     }
   }
 
@@ -137,18 +145,17 @@ class WorkerManager {
         }
         break;
         
-      case WorkerMessageType.PROGRESS_UPDATE:
-        // Handle progress update
-        if (message.id && this.pendingRequests.has(message.id)) {
-          const request = this.pendingRequests.get(message.id)!;
-          const options = message.payload.options;
-          
-          // Call progress callback if available
-          if (options && options.onProgress) {
-            options.onProgress(message.payload.progress);
+        case WorkerMessageType.PROGRESS_UPDATE:
+          // Handle progress update
+          if (message.id && this.pendingRequests.has(message.id)) {
+            const request = this.pendingRequests.get(message.id)!;
+            
+            // Call progress callback if available using the stored callback
+            if (request.onProgress && typeof request.onProgress === 'function') {
+              request.onProgress(message.payload.progress);
+            }
           }
-        }
-        break;
+          break;
         
       default:
         console.warn(`Unknown message type: ${message.type}`);
@@ -219,14 +226,24 @@ class WorkerManager {
       }
       
       // Add the request to pending requests
-      this.pendingRequests.set(id, { resolve, reject, timeoutId });
+      this.pendingRequests.set(id, { 
+        resolve, 
+        reject, 
+        timeoutId,
+        // Store the progress callback here instead of sending it to the worker
+        onProgress: options.onProgress
+      });
       
-      // Send the message to the worker
+      // Send the message to the worker WITHOUT including the callback function
       this.worker!.postMessage({
         type,
         payload: {
           ...payload,
-          options
+          options: {
+            ...options,
+            // Remove the callback before sending to worker
+            onProgress: undefined
+          }
         },
         id
       });
