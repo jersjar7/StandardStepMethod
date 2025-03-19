@@ -36,8 +36,6 @@ water-surface-app/
 │   │   │   │   ├── WaterSurfaceVisualization.tsx  # 3D water surface visualization
 │   │   │   │   └── ExportMenu.tsx              # Export functionality
 │   │   │   ├── hooks/                          # Custom hooks for calculations
-│   │   │   │   ├── useCalculation.ts           # Calculation process management
-│   │   │   │   ├── useChannelCalculations.ts   # Hydraulic calculations
 │   │   │   │   ├── useExport.ts                # Export functionality
 │   │   │   │   ├── useResults.ts               # Results handling
 │   │   │   │   └── useStandardCalculation.ts   # Results handling

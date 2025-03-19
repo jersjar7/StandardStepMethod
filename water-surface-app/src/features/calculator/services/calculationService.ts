@@ -1,12 +1,11 @@
 // src/features/calculator/services/calculationService.ts
 
-import { ChannelParams, WaterSurfaceProfileResults, DetailedWaterSurfaceResults, FlowDepthPoint } from '../types';
+import { ChannelParams, WaterSurfaceProfileResults, DetailedWaterSurfaceResults } from '../types';
 import { CalculationResultWithError } from '../types/resultTypes';
 import WorkerManager from './workerManager';
 import {
   calculateWaterSurfaceProfile,
   calculateDetailedProfile,
-  calculateProfileWithErrorHandling,
   calculateCriticalDepth,
   calculateNormalDepth
 } from '../utils/hydraulics';

@@ -1,17 +1,46 @@
-import React, { useEffect, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import React, { useEffect, useState, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { 
   WaterSurfaceProfileResults, 
   UnitSystem,
+  FlowRegime,
+  ProfileType,
+  HydraulicJump,
+  FlowDepthPoint
 } from '../types';
-import { PROFILE_TYPE_DESCRIPTIONS, CHANNEL_SLOPE_DESCRIPTIONS } from '../stores/types/resultTypes';
+import { 
+  PROFILE_TYPE_DESCRIPTIONS, 
+  CHANNEL_SLOPE_DESCRIPTIONS
+} from '../stores/types/resultTypes';
 import { formatWithUnit, getParameterLabels } from '../../../utils/formatters';
+import { simplifyProfile } from '../utils/hydraulics/standardStep/profileUtils';
 
-interface ProfileVisualizationProps {
-  results: WaterSurfaceProfileResults;
-  unitSystem?: UnitSystem;
+// Define types for the detailed results that may include stats
+interface ProfileStats {
+  minDepth: number;
+  maxDepth: number;
+  avgDepth?: number;
+  minVelocity?: number;
+  maxVelocity?: number;
+  avgVelocity?: number;
+  minFroude: number;
+  maxFroude: number;
+  avgFroude?: number;
+  minEnergy?: number;
+  maxEnergy?: number;
+  avgEnergy?: number;
+  length: number;
+  numPoints: number;
+  predominantFlowRegime: string;
 }
 
+// Extended results interface for results that include stats
+interface DetailedResults extends WaterSurfaceProfileResults {
+  stats?: ProfileStats;
+  profileDescription?: string;
+}
+
+// Chart data point structure
 interface ChartDataPoint {
   station: number;
   waterSurface: number;
@@ -21,9 +50,32 @@ interface ChartDataPoint {
   energy?: number;
 }
 
+// Component props
+interface ProfileVisualizationProps {
+  results: WaterSurfaceProfileResults | DetailedResults;
+  unitSystem?: UnitSystem;
+  onPointSelect?: (station: number) => void;
+}
+
+// Type guard to check if a hydraulic jump occurs
+function isOccurringJump(jump: HydraulicJump | undefined): jump is HydraulicJump & { occurs: true } {
+  return jump !== undefined && 
+         typeof jump === 'object' && 
+         'occurs' in jump && 
+         jump.occurs === true;
+}
+
+// Type guard to check if results have detailed stats
+function hasDetailedStats(results: WaterSurfaceProfileResults | DetailedResults): results is DetailedResults {
+  return 'stats' in results && 
+         results.stats !== undefined &&
+         typeof results.stats === 'object';
+}
+
 const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({ 
   results,
-  unitSystem = 'metric'
+  unitSystem = 'metric',
+  onPointSelect
 }) => {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [showChannelBottom, setShowChannelBottom] = useState<boolean>(true);
@@ -34,43 +86,88 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
   // Get parameter labels with correct units
   const labels = getParameterLabels(unitSystem);
   
+  // Simplified profile data for better visualization performance
+  const optimizedProfile = useMemo(() => {
+    if (!results.flowProfile || results.flowProfile.length === 0) return [];
+    
+    // Use the standardized simplifyProfile utility to optimize the data
+    // for charts - reducing points while preserving important features
+    return results.flowProfile.length > 200 
+      ? simplifyProfile(results.flowProfile, 200)
+      : results.flowProfile;
+  }, [results.flowProfile]);
+  
   useEffect(() => {
     // Prepare data for the chart
-    if (results.flowProfile && results.flowProfile.length > 0) {
-      const formattedData = results.flowProfile.map(point => ({
-        station: point.x,
-        waterSurface: point.y,
-        channelBottom: 0, // Assuming a flat channel bottom for simplicity
-        criticalDepth: point.criticalDepth,
-        normalDepth: point.normalDepth,
-        energy: point.specificEnergy,
-      }));
+    if (optimizedProfile.length > 0) {
+      const formattedData = optimizedProfile.map((point: FlowDepthPoint) => {
+        // Calculate channel bottom (default to 0 for flat channel)
+        const channelSlope = results.channelType === 'steep' ? 0.01 : 0;
+        
+        return {
+          station: point.x,
+          waterSurface: point.y,
+          channelBottom: point.x * channelSlope,
+          criticalDepth: point.criticalDepth,
+          normalDepth: point.normalDepth,
+          energy: point.specificEnergy,
+        };
+      });
       
       setChartData(formattedData);
     }
-  }, [results]);
+  }, [optimizedProfile, results.channelType]);
   
   // Get profile type description
   const profileDescription = typeof results.profileType === 'string' 
     ? results.profileType 
-    : PROFILE_TYPE_DESCRIPTIONS[results.profileType] || "Water Surface Profile";
+    : (results.profileType && PROFILE_TYPE_DESCRIPTIONS[results.profileType]) || "Water Surface Profile";
   
   // Get slope description
   const channelSlopeValue = results.channelType;
   const channelSlopeDescription = 
-    // Safe access to channel slope description
     channelSlopeValue && 
     typeof channelSlopeValue === 'string' && 
     (channelSlopeValue === 'mild' || channelSlopeValue === 'critical' || channelSlopeValue === 'steep') 
       ? CHANNEL_SLOPE_DESCRIPTIONS[channelSlopeValue]
       : "Channel Classification";
   
-  // Additional profile details if available
-  const profileDetails = 'profileDescription' in results 
+  // Additional profile details if available - handle type safely
+  const profileDetails = 'profileDescription' in results && typeof results.profileDescription === 'string'
     ? results.profileDescription 
     : "";
   
-  // Custom tooltip component
+  // Get flow regime info
+  const flowRegime = useMemo(() => {
+    if ('flowRegime' in results && results.flowRegime) {
+      return results.flowRegime;
+    }
+    // Calculate from profile data if not provided
+    if (optimizedProfile.length === 0) return FlowRegime.SUBCRITICAL;
+    
+    const subcriticalCount = optimizedProfile.filter(p => p.froudeNumber < 1).length;
+    const supercriticalCount = optimizedProfile.filter(p => p.froudeNumber > 1).length;
+    
+    if (subcriticalCount > supercriticalCount) {
+      return FlowRegime.SUBCRITICAL;
+    } else if (supercriticalCount > subcriticalCount) {
+      return FlowRegime.SUPERCRITICAL;
+    } else {
+      return FlowRegime.CRITICAL;
+    }
+  }, [results, optimizedProfile]);
+  
+  // Handle chart click for point selection
+  const handleChartClick = (data: any) => {
+    if (data && data.activeLabel !== undefined && onPointSelect) {
+      onPointSelect(data.activeLabel);
+    }
+  };
+  
+  // Check if hydraulic jump occurs
+  const hasHydraulicJump = isOccurringJump(results.hydraulicJump);
+  
+  // Custom tooltip component with formatted values
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -87,8 +184,8 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
             if (entry.dataKey === 'energy' && !showEnergyLine) return null;
             
             // Set color based on dataKey
-            let color = entry.color;
-            let label = entry.name;
+            const color = entry.color;
+            const label = entry.name;
             let paramName: string;
             
             switch (entry.dataKey) {
@@ -202,6 +299,7 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
           <LineChart
             data={chartData}
             margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
+            onClick={handleChartClick}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
@@ -271,11 +369,24 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
                 dot={false}
               />
             )}
+            
+            {/* Mark hydraulic jump if present */}
+            {hasHydraulicJump && (
+              <ReferenceLine 
+                x={results.hydraulicJump.station} 
+                stroke="#f59e0b"
+                strokeWidth={2}
+                label={{
+                  value: 'Hydraulic Jump',
+                  position: 'top',
+                  fill: '#f59e0b',
+                  fontSize: 12
+                }}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
-      
-      {/* Rest of the existing implementation */}
       
       {/* Flow regime explanation */}
       <div className="mt-6 p-4 bg-gray-50 rounded-md">
@@ -287,8 +398,24 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
           is where specific energy is minimized.
         </p>
         
+        {/* Hydraulic jump information */}
+        {hasHydraulicJump && (
+          <div className="mt-3 pt-3 border-t border-yellow-200 bg-yellow-50 p-3 rounded">
+            <h5 className="text-sm font-medium text-yellow-800 mb-1">Hydraulic Jump Details</h5>
+            <p className="text-xs text-yellow-700">
+              A hydraulic jump occurs at station {formatWithUnit(results.hydraulicJump.station || 0, 'station', unitSystem, 2)}, 
+              where the flow transitions from supercritical (Fr &gt; 1) to subcritical (Fr &lt; 1).
+              The water depth increases from {formatWithUnit(results.hydraulicJump.upstreamDepth || 0, 'depth', unitSystem, 3)} to {' '}
+              {formatWithUnit(results.hydraulicJump.downstreamDepth || 0, 'depth', unitSystem, 3)}.
+              {typeof results.hydraulicJump.energyLoss === 'number' && (
+                <span> Energy loss at jump: {formatWithUnit(results.hydraulicJump.energyLoss, 'energy', unitSystem, 3)}.</span>
+              )}
+            </p>
+          </div>
+        )}
+        
         {/* Display additional details from results if available */}
-        {'stats' in results && results.stats && (
+        {hasDetailedStats(results) && (
           <div className="mt-3 pt-3 border-t border-gray-200">
             <h5 className="text-sm font-medium text-gray-900 mb-1">Profile Statistics</h5>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-700">
@@ -304,6 +431,18 @@ const ProfileVisualization: React.FC<ProfileVisualizationProps> = ({
               <div>
                 <span className="font-medium">Length:</span> {formatWithUnit(results.stats.length, 'length', unitSystem, 0)}
               </div>
+              
+              {/* Additional statistics if available */}
+              {results.stats.avgVelocity !== undefined && (
+                <div>
+                  <span className="font-medium">Avg Velocity:</span> {formatWithUnit(results.stats.avgVelocity, 'velocity', unitSystem, 2)}
+                </div>
+              )}
+              {results.stats.avgDepth !== undefined && (
+                <div>
+                  <span className="font-medium">Avg Depth:</span> {formatWithUnit(results.stats.avgDepth, 'depth', unitSystem, 2)}
+                </div>
+              )}
             </div>
           </div>
         )}

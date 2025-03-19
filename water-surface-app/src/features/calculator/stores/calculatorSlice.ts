@@ -6,7 +6,6 @@ import {
   WaterSurfaceProfileResults,
   DetailedWaterSurfaceResults,
   ChannelType,
-  HydraulicJump
 } from '../types';
 import { CalculationResultWithError } from '../../calculator/types/resultTypes';
 

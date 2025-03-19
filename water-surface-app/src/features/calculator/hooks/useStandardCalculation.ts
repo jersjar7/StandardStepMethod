@@ -15,7 +15,6 @@ import {
   ChannelParams,
   WaterSurfaceProfileResults,
   DetailedWaterSurfaceResults,
-  FlowDepthPoint
 } from '../types';
 
 /**
