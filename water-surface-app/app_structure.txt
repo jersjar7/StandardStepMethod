@@ -79,12 +79,14 @@ water-surface-app/
 │   │   │   │   │   │   ├── stepCalculator.ts   # Single step calculation logic
 │   │   │   │   │   │   ├── transitionDetector.ts # Profile transitions detection
 │   │   │   │   │   │   └──types.ts             # Type definitions
+│   │   │   │   │   ├──  diagnosticUtils.ts     # Diagnostic of utils
 │   │   │   │   │   └── index.ts                # Re-exports for compatibility
 │   │   │   │   └──  helpers.ts                 # Helper functions
 │   │   │   ├── validators/                     # Input validation
 │   │   │   │   └── inputValidators.ts          # Validation functions
 │   │   │   ├── workers/                        # Web Worker
 │   │   │   │   ├── calculationWorker.ts        # Calculation Web Worker
+│   │   │   │   ├── calculationWorkerFallback.js # Fallback implementation of the worker that doesn't use ES modules
 │   │   │   │   └── testWorker.ts               # Web Worker Test
 │   │   │   └── Calculator.tsx                  # Main calculator component
 │   │   ├── documentation/                      # Documentation feature
