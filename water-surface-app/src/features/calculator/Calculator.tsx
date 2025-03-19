@@ -3,8 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   updateChannelParams,
   setChannelType,
-  setWaterSurfaceResults,
-  resetResults
+  setSelectedTab
 } from './stores/calculatorSlice';
 import { RootState } from '../../stores';
 import { 
@@ -19,55 +18,56 @@ import WaterSurfaceProfileVisualization from './components/WaterSurfaceVisualiza
 import CrossSectionView from './components/CrossSectionView';
 import ExportMenu from './components/ExportMenu';
 
-// Import hydraulics utilities and hooks
-import { useChannelCalculations } from './hooks/useChannelCalculations';
+// Import the new standardized hook
+import { useStandardCalculation } from './hooks/useStandardCalculation';
 
 const Calculator: React.FC = () => {
   const dispatch = useDispatch();
   const {
     channelParams,
+    selectedTab
+  } = useSelector((state: RootState) => state.calculator);
+
+  // Use the new standardized hook instead of direct calculation utilities
+  const {
+    calculateWaterSurfaceProfile,
+    resetCalculation,
     isCalculating,
     error,
-    detailedResults
-  } = useSelector((state: RootState) => state.calculator);
+    results,
+    progress
+  } = useStandardCalculation({
+    useRedux: true,
+    calculationOptions: {
+      useWorker: true,
+      useCache: true,
+      showProgress: true
+    }
+  });
   
-  const [activeTab, setActiveTab] = useState<TabType>('input');
   const [selectedStation, setSelectedStation] = useState<number>(0);
   
-  // Use channel calculations hook for standardized calculations
-  const { calculateProfileWithHandling } = useChannelCalculations();
-  
   // Flag to check if we have results
-  const hasResults = !!detailedResults && detailedResults.flowProfile.length > 0;
+  const hasResults = !!results && results.flowProfile.length > 0;
   
   // Handle tab changes based on results
   useEffect(() => {
     // If results are available and we're on the input tab, switch to results
-    if (hasResults && activeTab === 'input' && !isCalculating) {
-      setActiveTab('results');
+    if (hasResults && selectedTab === 'input' && !isCalculating) {
+      dispatch(setSelectedTab('results'));
     }
     
     // If no results are available and we're not on input tab, switch to input
-    if (!hasResults && activeTab !== 'input' && !isCalculating) {
-      setActiveTab('input');
+    if (!hasResults && selectedTab !== 'input' && !isCalculating) {
+      dispatch(setSelectedTab('input'));
     }
-  }, [hasResults, isCalculating, activeTab]);
+  }, [hasResults, isCalculating, selectedTab, dispatch]);
   
   // Handle calculation
   const handleCalculate = async () => {
     try {
-      // Run the calculation
-      const results = await calculateProfileWithHandling(channelParams);
-      
-      // Store results in Redux if calculation was successful
-      if (results) {
-        dispatch(setWaterSurfaceResults(results));
-        
-        // Set initial selected station
-        if (results.flowProfile && results.flowProfile.length > 0) {
-          setSelectedStation(results.flowProfile[0].x);
-        }
-      }
+      // Use the standardized hook for calculation
+      await calculateWaterSurfaceProfile(channelParams);
     } catch (error) {
       console.error('Calculation error:', error);
     }
@@ -75,8 +75,8 @@ const Calculator: React.FC = () => {
   
   // Handle reset
   const handleReset = () => {
-    dispatch(resetResults());
-    setActiveTab('input');
+    resetCalculation();
+    dispatch(setSelectedTab('input'));
   };
   
   // Handle channel type change
@@ -91,16 +91,16 @@ const Calculator: React.FC = () => {
   
   // Find the result at the selected station
   const getResultAtStation = () => {
-    if (!detailedResults?.flowProfile || detailedResults.flowProfile.length === 0) {
+    if (!results?.flowProfile || results.flowProfile.length === 0) {
       return null;
     }
     
     // Find the closest point to the selected station
-    return detailedResults.flowProfile.reduce((closest, current) => {
+    return results.flowProfile.reduce((closest, current) => {
       const currentDistance = Math.abs(current.x - selectedStation);
       const closestDistance = Math.abs(closest.x - selectedStation);
       return currentDistance < closestDistance ? current : closest;
-    }, detailedResults.flowProfile[0]);
+    }, results.flowProfile[0]);
   };
   
   return (
@@ -109,10 +109,36 @@ const Calculator: React.FC = () => {
       
       {/* Tabs navigation */}
       <CalculatorTabs 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+        activeTab={selectedTab as TabType} 
+        setActiveTab={(tab) => dispatch(setSelectedTab(tab))} 
         hasResults={hasResults}
       />
+      
+      {/* Progress indicator when calculating */}
+      {isCalculating && (
+        <div className="mb-6">
+          <div className="bg-blue-100 border-l-4 border-blue-500 p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-500 animate-spin" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-blue-700">
+                  Calculating water surface profile... {progress > 0 ? `${Math.round(progress)}%` : ''}
+                </p>
+                {progress > 0 && (
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                    <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Error alert */}
       {error && (
@@ -132,7 +158,7 @@ const Calculator: React.FC = () => {
       
       {/* Tab content */}
       <div>
-        {activeTab === 'input' && (
+        {selectedTab === 'input' && (
           <div>
             <ChannelForm 
               channelParams={channelParams}
@@ -145,40 +171,40 @@ const Calculator: React.FC = () => {
           </div>
         )}
         
-        {activeTab === 'results' && hasResults && (
+        {selectedTab === 'results' && hasResults && (
           <div id="results-section">
             <div className="flex justify-between mb-4">
               <h2 className="text-xl font-semibold">Calculation Results</h2>
               <ExportMenu 
-                results={detailedResults.flowProfile} 
+                results={results.flowProfile} 
                 channelParams={channelParams} 
               />
             </div>
             
             <ResultsTable 
-              results={detailedResults}
+              results={results}
               onSelectPoint={(point) => setSelectedStation(point.x)}
             />
             
-            {detailedResults.hydraulicJump?.occurs && (
+            {results.hydraulicJump?.occurs && (
               <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
                 <h3 className="text-lg font-medium text-yellow-800">Hydraulic Jump Detected</h3>
                 <p className="mt-2 text-sm text-yellow-700">
-                  A hydraulic jump occurs at station {detailedResults.hydraulicJump.station?.toFixed(2)} m.
-                  The water depth changes from {detailedResults.hydraulicJump.upstreamDepth?.toFixed(3)} m to {detailedResults.hydraulicJump.downstreamDepth?.toFixed(3)} m.
+                  A hydraulic jump occurs at station {results.hydraulicJump.station?.toFixed(2)} m.
+                  The water depth changes from {results.hydraulicJump.upstreamDepth?.toFixed(3)} m to {results.hydraulicJump.downstreamDepth?.toFixed(3)} m.
                 </p>
               </div>
             )}
           </div>
         )}
         
-        {activeTab === 'profile' && hasResults && (
+        {selectedTab === 'profile' && hasResults && (
           <WaterSurfaceProfileVisualization 
-            results={detailedResults}
+            results={results}
           />
         )}
         
-        {activeTab === 'cross-section' && hasResults && (
+        {selectedTab === 'cross-section' && hasResults && (
           <div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -186,31 +212,31 @@ const Calculator: React.FC = () => {
               </label>
               <input
                 type="range"
-                min={detailedResults.flowProfile[0].x}
-                max={detailedResults.flowProfile[detailedResults.flowProfile.length - 1].x}
+                min={results.flowProfile[0].x}
+                max={results.flowProfile[results.flowProfile.length - 1].x}
                 value={selectedStation}
                 onChange={(e) => setSelectedStation(parseFloat(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                step={(detailedResults.flowProfile[detailedResults.flowProfile.length - 1].x - detailedResults.flowProfile[0].x) / 100}
+                step={(results.flowProfile[results.flowProfile.length - 1].x - results.flowProfile[0].x) / 100}
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>{detailedResults.flowProfile[0].x.toFixed(0)} m</span>
-                <span>{detailedResults.flowProfile[Math.floor(detailedResults.flowProfile.length / 2)].x.toFixed(0)} m</span>
-                <span>{detailedResults.flowProfile[detailedResults.flowProfile.length - 1].x.toFixed(0)} m</span>
+                <span>{results.flowProfile[0].x.toFixed(0)} m</span>
+                <span>{results.flowProfile[Math.floor(results.flowProfile.length / 2)].x.toFixed(0)} m</span>
+                <span>{results.flowProfile[results.flowProfile.length - 1].x.toFixed(0)} m</span>
               </div>
             </div>
             
             <CrossSectionView
               selectedFlowPoint={getResultAtStation() || undefined}
               channelType={channelParams.channelType}
-              results={detailedResults}
+              results={results}
             />
           </div>
         )}
         
-        {activeTab === 'water-surface' && hasResults && (
+        {selectedTab === 'water-surface' && hasResults && (
           <WaterSurfaceProfileVisualization 
-            results={detailedResults}
+            results={results}
           />
         )}
       </div>

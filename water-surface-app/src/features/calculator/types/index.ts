@@ -8,8 +8,30 @@ import {
   HydraulicJump, 
   BaseHydraulicJump, 
   OccurringHydraulicJump, 
-  NoHydraulicJump 
+  NoHydraulicJump,
+  classifyJump
 } from './hydraulicJumpTypes';
+
+import {
+  CalculationResultWithError,
+  DetailedCalculationResultWithError,
+  ProfileStatistics,
+  FLOW_REGIME_DESCRIPTIONS,
+  PROFILE_TYPE_DESCRIPTIONS,
+  CHANNEL_SLOPE_DESCRIPTIONS,
+  getFlowRegimeDescription,
+  determineProfileType,
+  getProfileTypeDescription
+} from './resultTypes';
+
+import {
+  WorkerMessage,
+  WorkerMessageType,
+  WorkerCalculationMessage,
+  WorkerProgressMessage,
+  WorkerResultMessage,
+  WorkerErrorMessage
+} from './workerTypes';
 
 /**
  * Unit system
@@ -81,6 +103,13 @@ export interface ChannelParams {
   criticalDepth?: number;     // Reference value, calculated if not provided
   normalDepth?: number;       // Reference value, calculated if not provided
   units?: UnitSystem;         // Unit system
+  
+  // Internal calculation parameters - not part of the public API
+  _numSteps?: number;         // Number of calculation steps
+  _tolerance?: number;        // Convergence tolerance
+  _maxIterations?: number;    // Maximum iterations per step
+  _method?: string;           // Calculation method
+  _highResolution?: boolean;  // Whether to use high-resolution calculation
 }
 
 /**
@@ -96,14 +125,6 @@ export interface FlowDepthPoint {
   normalDepth: number;       // Normal depth
   topWidth: number;          // Top width of water surface
 }
-
-// Re-export hydraulic jump types
-export type { 
-  HydraulicJump, 
-  BaseHydraulicJump, 
-  OccurringHydraulicJump, 
-  NoHydraulicJump 
-};
 
 /**
  * Calculation result for a single point
@@ -123,69 +144,6 @@ export interface CalculationResult {
 }
 
 /**
- * Profile statistics
- */
-export interface ProfileStatistics {
-  minDepth: number;                // Minimum depth
-  maxDepth: number;                // Maximum depth
-  avgDepth: number;                // Average depth
-  minVelocity: number;             // Minimum velocity
-  maxVelocity: number;             // Maximum velocity
-  avgVelocity: number;             // Average velocity
-  minFroude: number;               // Minimum Froude number
-  maxFroude: number;               // Maximum Froude number
-  avgFroude: number;               // Average Froude number
-  minEnergy: number;               // Minimum specific energy
-  maxEnergy: number;               // Maximum specific energy
-  avgEnergy: number;               // Average specific energy
-  length: number;                  // Profile length
-  numPoints: number;               // Number of calculation points
-  predominantFlowRegime: string;   // Predominant flow regime
-}
-
-/**
- * Water surface profile results
- */
-export interface WaterSurfaceProfileResults {
-  flowProfile: FlowDepthPoint[];    // Array of flow depth points
-  profileType: ProfileType;         // Profile classification using enum or string
-  channelType: string;              // Channel slope classification (mild, steep, critical)
-  criticalDepth: number;            // Critical depth for the channel and discharge
-  normalDepth: number;              // Normal depth for the channel and discharge
-  isChoking: boolean;               // Indicates if choking occurred
-  hydraulicJump?: HydraulicJump;    // Hydraulic jump details, if any
-  // Added optional properties for extended analysis
-  profileDescription?: string;      // Human-readable profile description
-  profileDetails?: string;          // Detailed information about the profile
-  stats?: ProfileStatistics;        // Statistical analysis of the profile
-}
-
-/**
- * Step calculation parameters
- */
-export interface StepCalculationParams {
-  currentX: number;                // Current station
-  currentY: number;                // Current depth
-  nextX: number;                   // Next station
-  direction: CalculationDirection; // Calculation direction
-  params: ChannelParams;           // Channel parameters
-}
-
-/**
- * Profile calculation parameters
- */
-export interface ProfileCalculationParams {
-  initialDepth: number;            // Initial water depth
-  direction: CalculationDirection; // Calculation direction
-  startPosition: number;           // Starting station
-  criticalDepth: number;           // Critical depth
-  normalDepth: number;             // Normal depth
-  numSteps: number;                // Number of calculation steps
-  channelSlope: ChannelSlope;      // Channel slope classification
-  params: ChannelParams;           // Channel parameters
-}
-
-/**
  * Flow transition
  */
 export interface FlowTransition {
@@ -200,15 +158,26 @@ export interface FlowTransition {
 }
 
 /**
- * Calculator state
+ * Water surface profile results
  */
-export interface CalculatorState {
-  channelParams: ChannelParams;
-  results: CalculationResult[];
-  hydraulicJump?: HydraulicJump;
-  isCalculating: boolean;
-  error: string | null;
-  selectedResultIndex?: number;
+export interface WaterSurfaceProfileResults {
+  flowProfile: FlowDepthPoint[];    // Array of flow depth points
+  profileType: ProfileType;         // Profile classification using enum
+  channelType: string;              // Channel slope classification (mild, steep, critical)
+  criticalDepth: number;            // Critical depth for the channel and discharge
+  normalDepth: number;              // Normal depth for the channel and discharge
+  isChoking: boolean;               // Indicates if choking occurred
+  hydraulicJump?: HydraulicJump;    // Hydraulic jump details, if any
+}
+
+/**
+ * Detailed water surface profile results with additional analysis
+ */
+export interface DetailedWaterSurfaceResults extends WaterSurfaceProfileResults {
+  profileDescription?: string;      // Human-readable profile description
+  profileDetails?: string;          // Detailed information about the profile
+  flowRegime?: FlowRegime;          // Predominant flow regime
+  stats?: ProfileStatistics;        // Statistical analysis of the profile
 }
 
 /**
@@ -223,26 +192,79 @@ export interface ExportOptions {
 }
 
 /**
- * DetailedWaterSurfaceResults
+ * Calculation progress event
  */
-export interface DetailedWaterSurfaceResults extends WaterSurfaceProfileResults {
-  profileDescription?: string;
-  profileDetails?: string;
-  flowRegime?: FlowRegime;
-  stats?: ProfileStatistics;
+export interface CalculationProgressEvent {
+  progress: number;         // Progress value (0-100)
+  message?: string;         // Optional progress message
+  currentStep?: number;     // Current calculation step
+  totalSteps?: number;      // Total calculation steps
+  stage?: string;           // Current calculation stage
 }
 
 /**
- * enhanceWithDetails
+ * Calculation task status
  */
-export function enhanceWithDetails<T extends WaterSurfaceProfileResults>(
-  baseResults: T, 
-  additionalProps: Partial<DetailedWaterSurfaceResults>
-): DetailedWaterSurfaceResults {
-  return {
-    ...baseResults,
-    ...additionalProps
-  };
+export enum CalculationTaskStatus {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CANCELED = 'canceled'
 }
 
-// Removed: export * from './resultTypes';
+/**
+ * Calculation task
+ */
+export interface CalculationTask {
+  id: string;              // Task ID
+  status: CalculationTaskStatus;  // Task status
+  params: ChannelParams;   // Channel parameters
+  startTime: number;       // Start timestamp
+  endTime?: number;        // End timestamp
+  progress: number;        // Progress value (0-100)
+  result?: WaterSurfaceProfileResults;  // Calculation result
+  error?: string;          // Error message if task failed
+}
+
+/**
+ * Calculation service configuration
+ */
+export interface CalculationServiceConfig {
+  useWorker: boolean;      // Whether to use Web Workers
+  useCache: boolean;       // Whether to use cache
+  cacheTTL: number;        // Cache time-to-live in milliseconds
+  defaultTimeout: number;  // Default calculation timeout in milliseconds
+}
+
+// Re-export hydraulic jump types
+export type { 
+  HydraulicJump, 
+  BaseHydraulicJump, 
+  OccurringHydraulicJump, 
+  NoHydraulicJump,
+  classifyJump
+};
+
+// Re-export result types
+export type {
+  CalculationResultWithError,
+  DetailedCalculationResultWithError,
+  ProfileStatistics,
+  FLOW_REGIME_DESCRIPTIONS,
+  PROFILE_TYPE_DESCRIPTIONS,
+  CHANNEL_SLOPE_DESCRIPTIONS,
+  getFlowRegimeDescription,
+  determineProfileType,
+  getProfileTypeDescription
+};
+
+// Re-export worker types
+export type {
+  WorkerMessage,
+  WorkerMessageType,
+  WorkerCalculationMessage,
+  WorkerProgressMessage,
+  WorkerResultMessage,
+  WorkerErrorMessage
+};

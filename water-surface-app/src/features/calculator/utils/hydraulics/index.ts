@@ -1,226 +1,150 @@
 /**
  * Hydraulics Module for Water Surface Profile Calculations
  * 
- * This module implements various hydraulic calculations including the standard step method
- * for calculating water surface profiles in open channels. It provides a modular approach
- * with consistent standardized return types throughout the API.
+ * This module implements hydraulic calculations including the standard step method
+ * for water surface profiles in open channels. It provides standardized types and
+ * consistent error handling patterns across all functions.
  */
 
 import { 
   ChannelParams, 
-  FlowDepthPoint, 
+  ProfileType,
   FlowRegime,
   WaterSurfaceProfileResults,
   DetailedWaterSurfaceResults,
-  enhanceWithDetails
+  HydraulicJump,
+  FlowDepthPoint
 } from '../../types';
 import { CalculationResultWithError } from '../../../calculator/types/resultTypes';
 
-// Import core calculation components
+// Import calculation components
 import { 
   calculateWaterSurfaceProfile as baseCalculateWaterSurfaceProfile, 
-  determineProfileType,
-  setupInitialConditions,
-  validateCalculationParameters,
-  interpolateProfileAtStations,
-  createUniformProfile
+  calculateHighResolutionProfile as baseCalculateHighResolutionProfile,
+  calculateBidirectionalProfile as baseCalculateBidirectionalProfile,
+  validateCalculationParameters
 } from './standardStep/profileCalculator';
 
 import { 
   calculateNextDepth, 
-  calculateNextDepthNewtonRaphson,
   calculatePropertiesAtDepth
 } from './standardStep/stepCalculator';
 
 import { 
-  detectHydraulicJump, 
-  detectMultipleJumps,
-  incorporateJumpsIntoProfile,
-  isJumpBetweenPoints,
-  refineJumpLocation
+  detectHydraulicJump,  
+  isJumpBetweenPoints
 } from './standardStep/jumpDetector';
 
 import {
-  detectFlowTransitions,
-  determineFlowRegime,
-  classifyProfileByTransitions,
-  findCriticalDepthLocation,
-  findNormalDepthLocation,
-  FlowTransition
-} from './standardStep/transitionDetector';
+  calculateCriticalDepth as baseCriticalDepth
+} from './criticalFlow';
 
 import {
-  calculateProfileStatistics,
-  getProfileDescription,
-  simplifyProfile
-} from './standardStep/profileUtils';
-
-import { calculateCriticalDepth } from './criticalFlow';
-import { calculateNormalDepth } from './normalFlow';
-import { calculateTopWidth } from './channelGeometry';
-
-// Export types for use in other components
-export type { FlowDepthPoint, FlowTransition };
+  calculateNormalDepth as baseNormalDepth
+} from './normalFlow';
 
 /**
- * Main export for water surface profile calculation
- * This is the primary function that should be used by the application
- * 
- * @param params Channel parameters including geometry, flow, and roughness
- * @returns Standardized water surface profile results
+ * Standardized Calculation Result interface with error handling
  */
-export function calculateWaterSurfaceProfile(
-  params: ChannelParams
-): WaterSurfaceProfileResults {
-  // Call the base implementation and ensure it returns a standardized type
-  return baseCalculateWaterSurfaceProfile(params);
+interface StandardCalculationResult<T> {
+  result?: T;
+  error?: string;
 }
 
 /**
- * Calculate a high-resolution water surface profile
- * @param params Channel parameters
- * @param resolution Number of calculation points
- * @returns Standardized water surface profile results
+ * Progress callback function type
  */
-export function calculateHighResolutionProfile(
-  params: ChannelParams,
-  resolution: number = 200
-): WaterSurfaceProfileResults {
-  // Create modified params with higher resolution step count
-  const modifiedParams = {
-    ...params,
-    _numSteps: resolution // Internal parameter to override default step count
-  };
-  
-  // Calculate using the standard function
-  return calculateWaterSurfaceProfile(modifiedParams as any);
-}
+export type ProgressCallback = (progress: number) => void;
 
 /**
- * Calculate a bidirectional profile by analyzing from both ends
- * @param params Channel parameters
- * @returns Standardized water surface profile results
+ * Water Surface Profile Calculation Options
  */
-export function calculateBidirectionalProfile(
-  params: ChannelParams
-): WaterSurfaceProfileResults {
-  // First calculate normal and critical depths
-  const criticalDepth = calculateCriticalDepth(params);
-  const normalDepth = calculateNormalDepth(params);
-  
-  // Create two parameter sets for upstream and downstream calculations
-  const downstreamParams = {
-    ...params,
-    upstreamDepth: normalDepth,
-    downstreamDepth: undefined
-  };
-  
-  const upstreamParams = {
-    ...params,
-    upstreamDepth: undefined,
-    downstreamDepth: criticalDepth
-  };
-  
-  // Calculate profiles from both directions
-  const downstreamResults = calculateWaterSurfaceProfile(downstreamParams);
-  const upstreamResults = calculateWaterSurfaceProfile(upstreamParams);
-  
-  // Merge results and return standardized results
-  // This is a simplified implementation - a real one would combine the profiles intelligently
-  if (downstreamResults.flowProfile.length >= upstreamResults.flowProfile.length) {
-    return downstreamResults;
-  } else {
-    return upstreamResults;
-  }
+export interface CalculationOptions {
+  highResolution?: boolean;        // Whether to use high-resolution calculation
+  bidirectional?: boolean;         // Whether to calculate from both directions
+  includeHydraulicJump?: boolean;  // Whether to check for hydraulic jumps
+  onProgress?: ProgressCallback;   // Progress callback
 }
 
-/**
- * Export calculation functions for direct access with standardized return types
- */
-export {
-  // Profile setup and classification
-  determineProfileType,
-  setupInitialConditions,
-  validateCalculationParameters,
-  
-  // Step calculation functions
-  calculateNextDepth,
-  calculateNextDepthNewtonRaphson,
-  calculatePropertiesAtDepth,
-  
-  // Hydraulic jump detection
-  detectHydraulicJump,
-  detectMultipleJumps,
-  incorporateJumpsIntoProfile,
-  isJumpBetweenPoints,
-  refineJumpLocation,
-  
-  // Flow transition detection
-  detectFlowTransitions,
-  determineFlowRegime,
-  classifyProfileByTransitions,
-  findCriticalDepthLocation,
-  findNormalDepthLocation,
-  
-  // Profile analysis utilities
-  calculateProfileStatistics,
-  getProfileDescription,
-  simplifyProfile,
-  interpolateProfileAtStations,
-  createUniformProfile,
-  
-  // Basic hydraulic calculations
-  calculateCriticalDepth,
-  calculateNormalDepth
+// Default calculation options
+const defaultOptions: CalculationOptions = {
+  highResolution: false,
+  bidirectional: false,
+  includeHydraulicJump: true
 };
 
 /**
- * Calculate water surface profile with validation and error handling
- * Returns a standardized result type or error
- * 
+ * Calculate water surface profile with standardized return type
  * @param params Channel parameters
- * @returns Water surface profile calculation results or error
+ * @param options Calculation options
+ * @returns Water surface profile results
  */
-export function calculateProfileWithErrorHandling(
-  params: ChannelParams
-): CalculationResultWithError {
+export function calculateWaterSurfaceProfile(
+  params: ChannelParams,
+  options: Partial<CalculationOptions> = {}
+): WaterSurfaceProfileResults {
+  // Merge options with defaults
+  const calculationOptions = { ...defaultOptions, ...options };
+  
   try {
     // Validate parameters
     const validation = validateCalculationParameters(params);
     if (!validation.isValid) {
-      return { error: validation.message };
+      throw new Error(validation.message);
     }
     
+    // Select calculation method based on options
+    if (calculationOptions.bidirectional) {
+      // Use bidirectional calculation
+      return baseCalculateBidirectionalProfile(params);
+    } else if (calculationOptions.highResolution) {
+      // Use high-resolution calculation
+      return baseCalculateHighResolutionProfile(params);
+    } else {
+      // Use standard calculation
+      return baseCalculateWaterSurfaceProfile(params);
+    }
+  } catch (error) {
+    // If an error occurs, throw it for consistent handling upstream
+    throw error;
+  }
+}
+
+/**
+ * Calculate water surface profile with error handling
+ * @param params Channel parameters
+ * @param options Calculation options
+ * @returns Water surface profile results or error
+ */
+export function calculateProfileWithErrorHandling(
+  params: ChannelParams,
+  options: Partial<CalculationOptions> = {}
+): CalculationResultWithError {
+  try {
     // Calculate profile
-    const results = calculateWaterSurfaceProfile(params);
-    
+    const results = calculateWaterSurfaceProfile(params, options);
     return { results };
   } catch (error) {
-    return { 
-      error: error instanceof Error ? error.message : 'Unknown calculation error' 
-    };
+    // Handle error
+    return { error: error instanceof Error ? error.message : 'Unknown calculation error' };
   }
 }
 
 /**
  * Calculate detailed water surface profile with additional analysis
- * Returns an enhanced standardized type with additional properties
- * 
  * @param params Channel parameters
+ * @param options Calculation options
  * @returns Detailed water surface profile results or error
  */
 export function calculateDetailedProfile(
-  params: ChannelParams
+  params: ChannelParams,
+  options: Partial<CalculationOptions> = {}
 ): { results?: DetailedWaterSurfaceResults; error?: string } {
   try {
-    // First get standard results with standardized type
-    const results = calculateWaterSurfaceProfile(params);
+    // Calculate standard profile
+    const results = calculateWaterSurfaceProfile(params, options);
     
-    // Perform additional analysis
-    const profileDescription = getProfileDescription(results.flowProfile, params);
-    const stats = calculateProfileStatistics(results.flowProfile);
-    
-    // Determine flow regime based on Froude numbers
+    // Calculate flow regime
     let predominantFlowRegime = FlowRegime.SUBCRITICAL;
     let subcriticalCount = 0;
     let supercriticalCount = 0;
@@ -234,119 +158,202 @@ export function calculateDetailedProfile(
       predominantFlowRegime = FlowRegime.SUPERCRITICAL;
     }
     
-    // Return enhanced results with additional information
-    // using the standardized DetailedWaterSurfaceResults type
-    return { 
-      results: enhanceWithDetails(results, {
-        profileDescription: profileDescription.description,
-        profileDetails: profileDescription.details,
-        stats,
-        flowRegime: predominantFlowRegime
-      })
+    // Calculate statistics
+    const stats = calculateProfileStatistics(results.flowProfile);
+    
+    // Create enhanced result
+    const detailedResults: DetailedWaterSurfaceResults = {
+      ...results,
+      profileDescription: getProfileDescription(results),
+      profileDetails: getProfileDetails(results),
+      flowRegime: predominantFlowRegime,
+      stats
     };
+    
+    return { results: detailedResults };
   } catch (error) {
-    return { 
-      error: error instanceof Error ? error.message : 'Unknown calculation error' 
-    };
+    // Handle error
+    return { error: error instanceof Error ? error.message : 'Unknown calculation error' };
   }
 }
 
 /**
- * Batch calculate multiple profiles with different parameters
- * Returns an array of standardized results or errors
- * 
+ * Calculate critical depth with standardized return type
+ * @param params Channel parameters
+ * @returns Critical depth
+ */
+export function calculateCriticalDepth(params: ChannelParams): number {
+  return baseCriticalDepth(params);
+}
+
+/**
+ * Calculate normal depth with standardized return type
+ * @param params Channel parameters
+ * @returns Normal depth
+ */
+export function calculateNormalDepth(params: ChannelParams): number {
+  return baseNormalDepth(params);
+}
+
+/**
+ * Get profile description
+ * @param results Water surface profile results
+ * @returns Profile description
+ */
+function getProfileDescription(results: WaterSurfaceProfileResults): string {
+  // Create a human-readable description based on profile type
+  switch (results.profileType) {
+    case ProfileType.M1:
+      return "M1 - Backwater curve (Mild Slope)";
+      
+    case ProfileType.M2:
+      return "M2 - Drawdown curve approaching critical depth (Mild Slope)";
+      
+    case ProfileType.M3:
+      return "M3 - Supercritical profile (Mild Slope)";
+      
+    case ProfileType.S1:
+      return "S1 - Backwater curve (Steep Slope)";
+      
+    case ProfileType.S2:
+      return "S2 - Drawdown curve (Steep Slope)";
+      
+    case ProfileType.S3:
+      return "S3 - Subcritical profile (Steep Slope)";
+      
+    case ProfileType.C1:
+      return "C1 - Backwater curve (Critical Slope)";
+      
+    case ProfileType.C2:
+      return "C2 - Uniform flow (Critical Slope)";
+      
+    case ProfileType.C3:
+      return "C3 - Drawdown curve (Critical Slope)";
+      
+    case ProfileType.MIXED:
+      return "Mixed Flow Profile";
+      
+    default:
+      return `${results.profileType} Profile`;
+  }
+}
+
+/**
+ * Get detailed profile information
+ * @param results Water surface profile results
+ * @returns Profile details
+ */
+function getProfileDetails(results: WaterSurfaceProfileResults): string {
+  let details = `Channel Type: ${results.channelType}\n`;
+  details += `Critical Depth: ${results.criticalDepth.toFixed(3)} m\n`;
+  details += `Normal Depth: ${results.normalDepth.toFixed(3)} m\n`;
+  
+  // Add hydraulic jump information if present
+  if (results.hydraulicJump?.occurs) {
+    details += "\nHydraulic Jump:\n";
+    details += `  Location: ${results.hydraulicJump.station.toFixed(2)} m\n`;
+    details += `  Upstream Depth: ${results.hydraulicJump.upstreamDepth.toFixed(3)} m\n`;
+    details += `  Downstream Depth: ${results.hydraulicJump.downstreamDepth.toFixed(3)} m\n`;
+    
+    if (results.hydraulicJump.energyLoss !== undefined) {
+      details += `  Energy Loss: ${results.hydraulicJump.energyLoss.toFixed(3)} m\n`;
+    }
+  }
+  
+  return details;
+}
+
+/**
+ * Calculate profile statistics
+ * @param profile Flow depth points
+ * @returns Profile statistics
+ */
+function calculateProfileStatistics(profile: FlowDepthPoint[]): any {
+  if (profile.length === 0) {
+    return {};
+  }
+  
+  // Calculate min, max, and average values
+  let minDepth = profile[0].y;
+  let maxDepth = profile[0].y;
+  let sumDepth = 0;
+  
+  let minVelocity = profile[0].velocity;
+  let maxVelocity = profile[0].velocity;
+  let sumVelocity = 0;
+  
+  let minFroude = profile[0].froudeNumber;
+  let maxFroude = profile[0].froudeNumber;
+  let sumFroude = 0;
+  
+  let subcriticalCount = 0;
+  let supercriticalCount = 0;
+  
+  // Process all points
+  for (const point of profile) {
+    // Depth
+    minDepth = Math.min(minDepth, point.y);
+    maxDepth = Math.max(maxDepth, point.y);
+    sumDepth += point.y;
+    
+    // Velocity
+    minVelocity = Math.min(minVelocity, point.velocity);
+    maxVelocity = Math.max(maxVelocity, point.velocity);
+    sumVelocity += point.velocity;
+    
+    // Froude number
+    minFroude = Math.min(minFroude, point.froudeNumber);
+    maxFroude = Math.max(maxFroude, point.froudeNumber);
+    sumFroude += point.froudeNumber;
+    
+    // Flow regime
+    if (point.froudeNumber < 1) {
+      subcriticalCount++;
+    } else {
+      supercriticalCount++;
+    }
+  }
+  
+  // Calculate predominant flow regime
+  let predominantFlowRegime = "Mixed Flow";
+  if (subcriticalCount > supercriticalCount) {
+    predominantFlowRegime = "Subcritical Flow";
+  } else if (supercriticalCount > subcriticalCount) {
+    predominantFlowRegime = "Supercritical Flow";
+  }
+  
+  // Return statistics
+  return {
+    minDepth,
+    maxDepth,
+    avgDepth: sumDepth / profile.length,
+    minVelocity,
+    maxVelocity,
+    avgVelocity: sumVelocity / profile.length,
+    minFroude,
+    maxFroude,
+    avgFroude: sumFroude / profile.length,
+    length: profile[profile.length - 1].x - profile[0].x,
+    numPoints: profile.length,
+    predominantFlowRegime
+  };
+}
+
+/**
+ * Batch calculate multiple profiles
  * @param paramsArray Array of channel parameters
+ * @param options Calculation options
  * @returns Array of calculation results
  */
 export function batchCalculateProfiles(
-  paramsArray: ChannelParams[]
+  paramsArray: ChannelParams[],
+  options: Partial<CalculationOptions> = {}
 ): CalculationResultWithError[] {
-  return paramsArray.map(params => calculateProfileWithErrorHandling(params));
+  return paramsArray.map(params => calculateProfileWithErrorHandling(params, options));
 }
 
-/**
- * Calculate critical and normal depth profiles for comparison
- * Returns standardized FlowDepthPoint arrays
- * 
- * @param params Channel parameters
- * @returns Object with critical and normal profiles
- */
-export function calculateReferenceProfiles(
-  params: ChannelParams
-): { 
-  criticalProfile: FlowDepthPoint[]; 
-  normalProfile: FlowDepthPoint[]; 
-} {
-  // Get basic depths
-  const criticalDepth = calculateCriticalDepth(params);
-  const normalDepth = calculateNormalDepth(params);
-  
-  // Create uniform station spacing
-  const numPoints = 100;
-  const step = params.length / (numPoints - 1);
-  
-  // Generate profiles
-  const criticalProfile: FlowDepthPoint[] = [];
-  const normalProfile: FlowDepthPoint[] = [];
-  
-  for (let i = 0; i < numPoints; i++) {
-    const station = i * step;
-    
-    // Calculate properties at critical depth
-    const criticalProps = calculatePropertiesAtDepth(criticalDepth, params);
-    
-    // Calculate properties at normal depth
-    const normalProps = calculatePropertiesAtDepth(normalDepth, params);
-    
-    // Calculate top width for critical and normal depths
-    const criticalTopWidth = calculateTopWidth(criticalDepth, params);
-    const normalTopWidth = calculateTopWidth(normalDepth, params);
-    
-    criticalProfile.push({
-      x: station,
-      y: criticalDepth,
-      velocity: criticalProps.velocity,
-      froudeNumber: 1.0, // By definition, Fr = 1 at critical depth
-      specificEnergy: criticalProps.specificEnergy,
-      criticalDepth,
-      normalDepth,
-      topWidth: criticalTopWidth // Add top width
-    });
-    
-    normalProfile.push({
-      x: station,
-      y: normalDepth,
-      velocity: normalProps.velocity,
-      froudeNumber: normalProps.froudeNumber,
-      specificEnergy: normalProps.specificEnergy,
-      criticalDepth,
-      normalDepth,
-      topWidth: normalTopWidth // Add top width
-    });
-  }
-  
-  return { criticalProfile, normalProfile };
-}
+// Re-export standardized types
+export type { ChannelParams, WaterSurfaceProfileResults, DetailedWaterSurfaceResults, FlowDepthPoint, FlowRegime, ProfileType, HydraulicJump };
 
-/**
- * Configure calculation options and return a function that uses standardized types
- * 
- * @param options Configuration options
- * @returns Configured calculation function that returns standardized results
- */
-export function configureStandardStepCalculation(options: {
-  resolution?: number;
-  maxIterations?: number;
-  convergenceTolerance?: number;
-  useNewtonRaphson?: boolean;
-}): (params: ChannelParams) => WaterSurfaceProfileResults {
-  return (params: ChannelParams): WaterSurfaceProfileResults => {
-    // Apply options to calculation
-    if (options.resolution) {
-      return calculateHighResolutionProfile(params, options.resolution);
-    }
-    
-    // Default calculation with standardized return type
-    return calculateWaterSurfaceProfile(params);
-  };
-}
+// Re-export step calculation components
+export { calculateNextDepth, calculatePropertiesAtDepth, detectHydraulicJump, isJumpBetweenPoints };

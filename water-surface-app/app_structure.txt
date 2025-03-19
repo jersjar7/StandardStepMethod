@@ -39,7 +39,11 @@ water-surface-app/
 │   │   │   │   ├── useCalculation.ts           # Calculation process management
 │   │   │   │   ├── useChannelCalculations.ts   # Hydraulic calculations
 │   │   │   │   ├── useExport.ts                # Export functionality
-│   │   │   │   └── useResults.ts               # Results handling
+│   │   │   │   ├── useResults.ts               # Results handling
+│   │   │   │   └── useStandardCalculation.ts   # Results handling
+│   │   │   ├── services/                       # [NEW DIRECTORY]
+│   │   │   │   ├── calculationService.ts       # [NEW] Centralized calculation service
+│   │   │   │   └── workerManager.ts             # [NEW] Web Worker adapter
 │   │   │   ├── stores/                         # Redux state management
 │   │   │   │   ├── types/                      # Type definitions
 │   │   │   │   │   ├── channelTypes.ts         # Channel parameter types
@@ -50,7 +54,8 @@ water-surface-app/
 │   │   │   │   ├── hydraulicJumpTypes.ts       # Hydraulic jump specific types
 │   │   │   │   ├── index.ts                    # General calculator types
 │   │   │   │   ├── README.md                   # Documentation for water surface profile results
-│   │   │   │   └── resultTypes.ts              # General result types
+│   │   │   │   ├── resultTypes.ts              # General result types
+│   │   │   │   └── workerTypes.ts              # General worker types
 │   │   │   ├── utils/                          # Calculation utilities
 │   │   │   │   ├── hydraulics/                 # Hydraulic calculations
 │   │   │   │   │   ├── channelGeometry.ts      # Area, wetted perimeter, top width
@@ -80,6 +85,8 @@ water-surface-app/
 │   │   │   │   └──  helpers.ts                 # Helper functions
 │   │   │   ├── validators/                     # Input validation
 │   │   │   │   └── inputValidators.ts          # Validation functions
+│   │   │   ├── workers/                        # Web Worker
+│   │   │   │   └── calculationWorker.ts        # Calculation Web Worker
 │   │   │   └── Calculator.tsx                  # Main calculator component
 │   │   ├── documentation/                      # Documentation feature
 │   │   │   ├── components/
