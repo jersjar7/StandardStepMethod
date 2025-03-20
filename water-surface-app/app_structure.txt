@@ -124,7 +124,12 @@ water-surface-app/
 │   │   ├── index.ts                            # Store configuration
 │   │   └── hooks.ts                            # useAppDispatch & useAppSelector
 │   ├── styles/                                 # Global styles
-│   │   └── tailwind.css                        # Global tailwind imports
+│   │   ├── variables.css                       # [NEW] CSS variables (colors, spacing, typography)
+│   │   ├── theme.css                           # [NEW] Theme implementation using variables
+│   │   ├── layout.css                          # [NEW] Layout improvements
+│   │   ├── responsive.css                      # [NEW] Responsive media queries
+│   │   ├── forms.css                           # [NEW] Enhanced form styling
+│   │   └── components.css                      # [NEW] Common component styling
 │   ├── tests/                                  # Test files
 │   │   ├── utils/
 │   │   │   └── hydraulics/                     # Tests for hydraulic calculations

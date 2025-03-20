@@ -1,0 +1,178 @@
+/*
+ * theme.css
+ * Theme implementation using CSS variables
+ */
+
+ @import './variables.css';
+
+ /* Light Theme (Default) */
+ :root {
+   /* Background Colors */
+   --color-bg-primary: var(--color-gray-50);
+   --color-bg-secondary: white;
+   --color-bg-tertiary: var(--color-gray-100);
+   --color-bg-inverse: var(--color-gray-900);
+   
+   /* Text Colors */
+   --color-text-primary: var(--color-gray-900);
+   --color-text-secondary: var(--color-gray-700);
+   --color-text-tertiary: var(--color-gray-500);
+   --color-text-inverse: white;
+   
+   /* Border Colors */
+   --color-border-light: var(--color-gray-200);
+   --color-border-medium: var(--color-gray-300);
+   --color-border-dark: var(--color-gray-400);
+   
+   /* UI Element Colors */
+   --color-ui-focus: var(--color-primary-500);
+   --color-ui-hover: var(--color-gray-100);
+   --color-ui-active: var(--color-primary-100);
+   --color-ui-disabled: var(--color-gray-200);
+   
+   /* Status Colors */
+   --color-success: var(--color-success-500);
+   --color-warning: var(--color-warning-500);
+   --color-error: var(--color-error-500);
+   --color-info: var(--color-info-500);
+   
+   /* Component-specific Colors */
+   --color-header-bg: white;
+   --color-sidebar-bg: white;
+   --color-card-bg: white;
+   --color-modal-bg: white;
+   --color-tooltip-bg: var(--color-gray-800);
+   --color-tooltip-text: white;
+ 
+   /* Visualization Colors */
+   --color-water-surface: rgba(33, 150, 243, 0.5);
+   --color-water-edges: rgba(25, 118, 210, 0.8);
+   --color-terrain: var(--terrain-color-1);
+   --color-terrain-line: var(--terrain-color-3);
+   --color-grid: rgba(0, 0, 0, 0.1);
+   --color-axis: var(--color-gray-600);
+   --color-data-point: var(--color-primary-600);
+   --color-flow-direction: var(--color-accent-600);
+   
+   /* Shadows */
+   --shadow-color: rgba(0, 0, 0, 0.1);
+   --shadow-color-darker: rgba(0, 0, 0, 0.15);
+ }
+ 
+ /* Dark Theme */
+ .dark-theme {
+   /* Background Colors */
+   --color-bg-primary: var(--color-gray-900);
+   --color-bg-secondary: var(--color-gray-800);
+   --color-bg-tertiary: var(--color-gray-700);
+   --color-bg-inverse: white;
+   
+   /* Text Colors */
+   --color-text-primary: white;
+   --color-text-secondary: var(--color-gray-300);
+   --color-text-tertiary: var(--color-gray-500);
+   --color-text-inverse: var(--color-gray-900);
+   
+   /* Border Colors */
+   --color-border-light: var(--color-gray-700);
+   --color-border-medium: var(--color-gray-600);
+   --color-border-dark: var(--color-gray-500);
+   
+   /* UI Element Colors */
+   --color-ui-focus: var(--color-primary-400);
+   --color-ui-hover: var(--color-gray-700);
+   --color-ui-active: rgba(33, 150, 243, 0.2);
+   --color-ui-disabled: var(--color-gray-700);
+   
+   /* Status Colors */
+   --color-success: var(--color-success-500);
+   --color-warning: var(--color-warning-500);
+   --color-error: var(--color-error-500);
+   --color-info: var(--color-info-500);
+   
+   /* Component-specific Colors */
+   --color-header-bg: var(--color-gray-800);
+   --color-sidebar-bg: var(--color-gray-800);
+   --color-card-bg: var(--color-gray-800);
+   --color-modal-bg: var(--color-gray-800);
+   --color-tooltip-bg: var(--color-gray-200);
+   --color-tooltip-text: var(--color-gray-900);
+ 
+   /* Visualization Colors */
+   --color-water-surface: rgba(33, 150, 243, 0.6);
+   --color-water-edges: rgba(25, 118, 210, 0.9);
+   --color-terrain: var(--terrain-color-3);
+   --color-terrain-line: var(--terrain-color-1);
+   --color-grid: rgba(255, 255, 255, 0.1);
+   --color-axis: var(--color-gray-400);
+   --color-data-point: var(--color-primary-400);
+   --color-flow-direction: var(--color-accent-400);
+   
+   /* Shadows */
+   --shadow-color: rgba(0, 0, 0, 0.3);
+   --shadow-color-darker: rgba(0, 0, 0, 0.4);
+ }
+ 
+ /* Preference-based Theme Selection */
+ @media (prefers-color-scheme: dark) {
+   :root:not(.light-theme) {
+     --color-bg-primary: var(--color-gray-900);
+     --color-bg-secondary: var(--color-gray-800);
+     --color-bg-tertiary: var(--color-gray-700);
+     --color-bg-inverse: white;
+     
+     --color-text-primary: white;
+     --color-text-secondary: var(--color-gray-300);
+     --color-text-tertiary: var(--color-gray-500);
+     --color-text-inverse: var(--color-gray-900);
+     
+     --color-border-light: var(--color-gray-700);
+     --color-border-medium: var(--color-gray-600);
+     --color-border-dark: var(--color-gray-500);
+     
+     --color-ui-focus: var(--color-primary-400);
+     --color-ui-hover: var(--color-gray-700);
+     --color-ui-active: rgba(33, 150, 243, 0.2);
+     --color-ui-disabled: var(--color-gray-700);
+     
+     --color-header-bg: var(--color-gray-800);
+     --color-sidebar-bg: var(--color-gray-800);
+     --color-card-bg: var(--color-gray-800);
+     --color-modal-bg: var(--color-gray-800);
+     --color-tooltip-bg: var(--color-gray-200);
+     --color-tooltip-text: var(--color-gray-900);
+ 
+     --color-water-surface: rgba(33, 150, 243, 0.6);
+     --color-water-edges: rgba(25, 118, 210, 0.9);
+     --color-terrain: var(--terrain-color-3);
+     --color-terrain-line: var(--terrain-color-1);
+     --color-grid: rgba(255, 255, 255, 0.1);
+     --color-axis: var(--color-gray-400);
+     
+     --shadow-color: rgba(0, 0, 0, 0.3);
+     --shadow-color-darker: rgba(0, 0, 0, 0.4);
+   }
+ }
+ 
+ /* Theme Transitions */
+ body {
+   transition: background-color var(--transition-duration-normal) var(--transition-timing-default),
+               color var(--transition-duration-normal) var(--transition-timing-default);
+ }
+ 
+ /* High Contrast Mode Adjustments */
+ @media (forced-colors: active) {
+   :root {
+     --color-ui-focus: CanvasText;
+     --color-border-light: CanvasText;
+     --color-border-medium: CanvasText;
+     --color-border-dark: CanvasText;
+   }
+   
+   /* Ensure visibility of elements in high contrast mode */
+   .chart-line,
+   .water-surface,
+   .terrain-line {
+     forced-color-adjust: none;
+   }
+ }

@@ -1,0 +1,479 @@
+/*
+ * responsive.css
+ * Breakpoint definitions and responsive patterns
+ */
+
+ @import './variables.css';
+
+ /* ===== Breakpoint Definitions ===== */
+ /* 
+   xs: 0px (default)
+   sm: 576px
+   md: 768px
+   lg: 1024px
+   xl: 1280px
+   2xl: 1536px
+ */
+ 
+ /* ===== Responsive Utilities ===== */
+ 
+ /* Responsive visibility classes */
+ .hidden {
+   display: none !important;
+ }
+ 
+ .block {
+   display: block !important;
+ }
+ 
+ .inline {
+   display: inline !important;
+ }
+ 
+ .inline-block {
+   display: inline-block !important;
+ }
+ 
+ .flex {
+   display: flex !important;
+ }
+ 
+ .inline-flex {
+   display: inline-flex !important;
+ }
+ 
+ .grid {
+   display: grid !important;
+ }
+ 
+ .inline-grid {
+   display: inline-grid !important;
+ }
+ 
+ /* Small screens (sm) */
+ @media (min-width: 576px) {
+   .sm\:hidden {
+     display: none !important;
+   }
+   
+   .sm\:block {
+     display: block !important;
+   }
+   
+   .sm\:inline {
+     display: inline !important;
+   }
+   
+   .sm\:inline-block {
+     display: inline-block !important;
+   }
+   
+   .sm\:flex {
+     display: flex !important;
+   }
+   
+   .sm\:inline-flex {
+     display: inline-flex !important;
+   }
+   
+   .sm\:grid {
+     display: grid !important;
+   }
+   
+   .sm\:inline-grid {
+     display: inline-grid !important;
+   }
+   
+   /* Grid columns for sm */
+   .sm\:grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+   .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+   .sm\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+   .sm\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+   .sm\:grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+   .sm\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+   
+   /* Flex direction for sm */
+   .sm\:flex-row { flex-direction: row; }
+   .sm\:flex-col { flex-direction: column; }
+   
+   /* Responsive gaps for sm */
+   .sm\:gap-2 { gap: var(--spacing-2); }
+   .sm\:gap-4 { gap: var(--spacing-4); }
+   .sm\:gap-6 { gap: var(--spacing-6); }
+ }
+ 
+ /* Medium screens (md) */
+ @media (min-width: 768px) {
+   .md\:hidden {
+     display: none !important;
+   }
+   
+   .md\:block {
+     display: block !important;
+   }
+   
+   .md\:inline {
+     display: inline !important;
+   }
+   
+   .md\:inline-block {
+     display: inline-block !important;
+   }
+   
+   .md\:flex {
+     display: flex !important;
+   }
+   
+   .md\:inline-flex {
+     display: inline-flex !important;
+   }
+   
+   .md\:grid {
+     display: grid !important;
+   }
+   
+   .md\:inline-grid {
+     display: inline-grid !important;
+   }
+   
+   /* Grid columns for md */
+   .md\:grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+   .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+   .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+   .md\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+   .md\:grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+   .md\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+   
+   /* Flex direction for md */
+   .md\:flex-row { flex-direction: row; }
+   .md\:flex-col { flex-direction: column; }
+   
+   /* Responsive gaps for md */
+   .md\:gap-2 { gap: var(--spacing-2); }
+   .md\:gap-4 { gap: var(--spacing-4); }
+   .md\:gap-6 { gap: var(--spacing-6); }
+   
+   /* App layout adjustments for md */
+   .app-layout {
+     grid-template-columns: 280px 1fr;
+   }
+   
+   /* Calculator layout for md */
+   .calculator-main {
+     grid-template-columns: 1fr 1fr;
+   }
+ }
+ 
+ /* Large screens (lg) */
+ @media (min-width: 1024px) {
+   .lg\:hidden {
+     display: none !important;
+   }
+   
+   .lg\:block {
+     display: block !important;
+   }
+   
+   .lg\:inline {
+     display: inline !important;
+   }
+   
+   .lg\:inline-block {
+     display: inline-block !important;
+   }
+   
+   .lg\:flex {
+     display: flex !important;
+   }
+   
+   .lg\:inline-flex {
+     display: inline-flex !important;
+   }
+   
+   .lg\:grid {
+     display: grid !important;
+   }
+   
+   .lg\:inline-grid {
+     display: inline-grid !important;
+   }
+   
+   /* Grid columns for lg */
+   .lg\:grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+   .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+   .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+   .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+   .lg\:grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+   .lg\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+   
+   /* Flex direction for lg */
+   .lg\:flex-row { flex-direction: row; }
+   .lg\:flex-col { flex-direction: column; }
+   
+   /* Responsive gaps for lg */
+   .lg\:gap-2 { gap: var(--spacing-2); }
+   .lg\:gap-4 { gap: var(--spacing-4); }
+   .lg\:gap-6 { gap: var(--spacing-6); }
+ }
+ 
+ /* Extra large screens (xl) */
+ @media (min-width: 1280px) {
+   .xl\:hidden {
+     display: none !important;
+   }
+   
+   .xl\:block {
+     display: block !important;
+   }
+   
+   .xl\:inline {
+     display: inline !important;
+   }
+   
+   .xl\:inline-block {
+     display: inline-block !important;
+   }
+   
+   .xl\:flex {
+     display: flex !important;
+   }
+   
+   .xl\:inline-flex {
+     display: inline-flex !important;
+   }
+   
+   .xl\:grid {
+     display: grid !important;
+   }
+   
+   .xl\:inline-grid {
+     display: inline-grid !important;
+   }
+   
+   /* Grid columns for xl */
+   .xl\:grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+   .xl\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+   .xl\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+   .xl\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+   .xl\:grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+   .xl\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+   
+   /* Flex direction for xl */
+   .xl\:flex-row { flex-direction: row; }
+   .xl\:flex-col { flex-direction: column; }
+   
+   /* Responsive gaps for xl */
+   .xl\:gap-2 { gap: var(--spacing-2); }
+   .xl\:gap-4 { gap: var(--spacing-4); }
+   .xl\:gap-6 { gap: var(--spacing-6); }
+ }
+ 
+/* 2xl screens */
+@media (min-width: 1536px) {
+    .\32xl\:hidden {
+      display: none !important;
+    }
+    
+    .\32xl\:block {
+      display: block !important;
+    }
+    
+    .\32xl\:grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+    .\32xl\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .\32xl\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .\32xl\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+ 
+ /* ===== Responsive Layout Adjustments ===== */
+ 
+ /* Mobile-first approach for app layout */
+ .app-layout {
+   display: grid;
+   grid-template-columns: 1fr;
+   grid-template-rows: auto auto 1fr auto;
+   min-height: 100vh;
+   grid-template-areas:
+     "header"
+     "sidebar"
+     "content"
+     "footer";
+ }
+ 
+ @media (min-width: 768px) {
+   .app-layout {
+     grid-template-columns: 280px 1fr;
+     grid-template-rows: auto 1fr auto;
+     grid-template-areas:
+       "header header"
+       "sidebar content"
+       "footer footer";
+   }
+ }
+ 
+ /* Responsive container padding */
+ .container {
+   padding-right: var(--spacing-3);
+   padding-left: var(--spacing-3);
+ }
+ 
+ @media (min-width: 576px) {
+   .container {
+     padding-right: var(--spacing-4);
+     padding-left: var(--spacing-4);
+   }
+ }
+ 
+ @media (min-width: 1024px) {
+   .container {
+     padding-right: var(--spacing-6);
+     padding-left: var(--spacing-6);
+   }
+ }
+ 
+ /* Calculator responsive layout */
+ .calculator-main {
+   display: grid;
+   grid-template-columns: 1fr;
+   grid-template-rows: auto auto;
+   gap: var(--spacing-4);
+ }
+ 
+ @media (min-width: 768px) {
+   .calculator-main {
+     grid-template-columns: 1fr 1fr;
+     grid-template-rows: 1fr;
+   }
+ }
+ 
+ @media (min-width: 1024px) {
+   .calculator-main {
+     grid-template-columns: 2fr 3fr;
+   }
+ }
+ 
+ /* Form responsiveness */
+ .form-grid {
+   display: grid;
+   grid-template-columns: 1fr;
+   gap: var(--spacing-3);
+ }
+ 
+ @media (min-width: 576px) {
+   .form-grid {
+     grid-template-columns: 1fr 1fr;
+     gap: var(--spacing-4);
+   }
+ }
+ 
+ @media (min-width: 1024px) {
+   .form-grid {
+     grid-template-columns: 1fr 1fr 1fr;
+   }
+ }
+ 
+ /* Split views responsive */
+ .split-view,
+ .split-view-uneven {
+   display: grid;
+   grid-template-columns: 1fr;
+   gap: var(--spacing-4);
+ }
+ 
+ @media (min-width: 768px) {
+   .split-view {
+     grid-template-columns: 1fr 1fr;
+   }
+   
+   .split-view-uneven {
+     grid-template-columns: 2fr 3fr;
+   }
+ }
+ 
+ /* ===== Responsive Typography ===== */
+ html {
+   font-size: 14px;
+ }
+ 
+ @media (min-width: 768px) {
+   html {
+     font-size: 15px;
+   }
+ }
+ 
+ @media (min-width: 1024px) {
+   html {
+     font-size: 16px;
+   }
+ }
+ 
+ /* Responsive headings */
+ h1, .h1 {
+   font-size: var(--font-size-2xl);
+ }
+ 
+ h2, .h2 {
+   font-size: var(--font-size-xl);
+ }
+ 
+ h3, .h3 {
+   font-size: var(--font-size-lg);
+ }
+ 
+ @media (min-width: 768px) {
+   h1, .h1 {
+     font-size: var(--font-size-3xl);
+   }
+   
+   h2, .h2 {
+     font-size: var(--font-size-2xl);
+   }
+   
+   h3, .h3 {
+     font-size: var(--font-size-xl);
+   }
+ }
+ 
+ @media (min-width: 1024px) {
+   h1, .h1 {
+     font-size: var(--font-size-4xl);
+   }
+   
+   h2, .h2 {
+     font-size: var(--font-size-3xl);
+   }
+   
+   h3, .h3 {
+     font-size: var(--font-size-2xl);
+   }
+ }
+ 
+ /* ===== Print Styles ===== */
+ @media print {
+   .app-header,
+   .app-sidebar,
+   .app-footer,
+   .no-print {
+     display: none !important;
+   }
+   
+   .app-layout {
+     display: block;
+   }
+   
+   .app-content {
+     padding: 0;
+     margin: 0;
+     background-color: white;
+   }
+   
+   .card {
+     box-shadow: none;
+     border: 1px solid #e0e0e0;
+   }
+   
+   /* Ensure backgrounds print */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+ }
