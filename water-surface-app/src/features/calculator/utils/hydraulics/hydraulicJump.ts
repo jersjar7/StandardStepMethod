@@ -5,7 +5,7 @@ import {
   enhanceJumpWithDetails,
   classifyJump
 } from '../../types/hydraulicJumpTypes';
-import { calculateArea } from './channelGeometry';
+import { calculateArea, calculateTopWidth } from './channelGeometry';
 import { calculateVelocity, calculateFroudeNumber } from './flowParameters';
 
 // Gravitational acceleration constant
@@ -57,24 +57,172 @@ export function calculateSequentDepth(upstreamDepth: number, params: ChannelPara
     return (upstreamDepth / 2) * (Math.sqrt(1 + 8 * Math.pow(froudeNumber1, 2)) - 1);
   }
   
-  // For non-rectangular channels, use momentum equation
-  // This requires iterative solution
+  // For non-rectangular channels, use momentum equation with iterative solution
   
   // Initial guess for sequent depth (based on rectangular approximation)
   let downstreamDepth = (upstreamDepth / 2) * (Math.sqrt(1 + 8 * Math.pow(froudeNumber1, 2)) - 1);
+  
+  // Ensure initial guess is reasonable
+  downstreamDepth = Math.max(downstreamDepth, 1.01 * upstreamDepth);
   
   // Tolerance for convergence
   const tolerance = 0.0001;
   let maxIterations = 50;
   let iterations = 0;
   
-  // Function to evaluate momentum equation
-  // M1 = M2, where M = A^2/T + Q^2/(g*A)
-  // Implementation details omitted for brevity...
+  // Calculate momentum function at upstream depth
+  const M1 = calculateMomentumFunction(upstreamDepth, params);
   
-  // Iterative solution would be here
+  // Iterative solution using bisection method
+  let y_min = upstreamDepth; // Minimum is upstream depth
+  let y_max = downstreamDepth * 2; // Maximum is a reasonable multiple
+  
+  // Evaluate function at min and max points
+  let f_min = calculateMomentumFunction(y_min, params) - M1;
+  let f_max = calculateMomentumFunction(y_max, params) - M1;
+  
+  // If sign is the same, expand the search range until we bracket the root
+  while (Math.sign(f_min) === Math.sign(f_max) && iterations < 10) {
+    y_max *= 2;
+    f_max = calculateMomentumFunction(y_max, params) - M1;
+    iterations++;
+  }
+  
+  // Reset iterations counter for main loop
+  iterations = 0;
+  
+  // Check if we found a bracket
+  if (Math.sign(f_min) === Math.sign(f_max)) {
+    // Couldn't find a bracket, fall back to initial guess
+    console.warn('Could not find a sequent depth bracket, using approximation');
+    return downstreamDepth;
+  }
+  
+  // Bisection method
+  while (iterations < maxIterations) {
+    // Calculate midpoint of the interval
+    downstreamDepth = (y_min + y_max) / 2;
+    
+    // Calculate momentum function at midpoint
+    const M2 = calculateMomentumFunction(downstreamDepth, params);
+    
+    // Check convergence
+    if (Math.abs(M2 - M1) < tolerance) {
+      break;
+    }
+    
+    // Update interval based on function sign
+    const f_mid = M2 - M1;
+    
+    if (Math.sign(f_mid) === Math.sign(f_min)) {
+      y_min = downstreamDepth;
+      f_min = f_mid;
+    } else {
+      y_max = downstreamDepth;
+      f_max = f_mid;
+    }
+    
+    iterations++;
+  }
   
   return downstreamDepth;
+}
+
+/**
+ * Calculates the momentum function for a hydraulic jump
+ * M = A²/T + Q²/(g*A)
+ * Where:
+ * - A is the cross-sectional area
+ * - T is the top width
+ * - Q is the discharge
+ * - g is gravitational acceleration
+ * 
+ * @param depth Water depth
+ * @param params Channel parameters
+ * @returns Momentum function value
+ */
+function calculateMomentumFunction(depth: number, params: ChannelParams): number {
+  // Get gravitational acceleration based on unit system
+  const g = params.units === 'imperial' ? G_IMPERIAL : G;
+  
+  // Calculate cross-sectional area, top width and first moment of area
+  const area = calculateArea(depth, params);
+  const topWidth = calculateTopWidth(depth, params);
+  
+  // Avoid division by zero
+  if (area <= 0 || topWidth <= 0) {
+    return 0;
+  }
+  
+  // Calculate hydrostatic pressure force term (A²/T)
+  const hydrostaticTerm = Math.pow(area, 2) / topWidth;
+  
+  // Calculate momentum flux term (Q²/(g*A))
+  const momentumFluxTerm = Math.pow(params.discharge, 2) / (g * area);
+  
+  // Calculate total momentum function M = A²/T + Q²/(g*A)
+  return hydrostaticTerm + momentumFluxTerm;
+}
+
+/**
+ * Calculates the first moment of area with respect to the water surface
+ * This is used for momentum calculations in non-rectangular channels
+ * 
+ * @param depth Water depth
+ * @param params Channel parameters
+ * @returns First moment of area
+ */
+function calculateFirstMomentOfArea(depth: number, params: ChannelParams): number {
+  const area = calculateArea(depth, params);
+  
+  // Calculate centroid distance from water surface
+  let centroidDepth: number;
+  
+  switch (params.channelType) {
+    case 'rectangular':
+      // For rectangular channel: depth/2
+      centroidDepth = depth / 2;
+      break;
+      
+    case 'trapezoidal':
+      // For trapezoidal channel with bottom width b and top width T
+      const bottomWidth = params.bottomWidth;
+      const topWidth = calculateTopWidth(depth, params);
+      
+      // Centroid formula for trapezoid: h(2b + T)/(3(b + T))
+      centroidDepth = depth * (2 * bottomWidth + topWidth) / (3 * (bottomWidth + topWidth));
+      break;
+      
+    case 'triangular':
+      // For triangular channel: depth/3
+      centroidDepth = depth / 3;
+      break;
+      
+    case 'circular':
+      // For circular channel (partially filled)
+      // This is an approximation based on the depth ratio
+      const diameter = params.diameter || 1;
+      const depthRatio = depth / diameter;
+      
+      if (depthRatio <= 0.5) {
+        // For shallow depth
+        centroidDepth = 0.375 * depth;
+      } else if (depthRatio >= 1.0) {
+        // Full circle
+        centroidDepth = 0.5 * diameter;
+      } else {
+        // Intermediate depth - approximation
+        centroidDepth = depth * (0.375 + 0.125 * (2 * depthRatio - 1));
+      }
+      break;
+      
+    default:
+      // Default approximation
+      centroidDepth = depth / 2;
+  }
+  
+  // First moment of area = Area * centroid depth
+  return area * centroidDepth;
 }
 
 /**

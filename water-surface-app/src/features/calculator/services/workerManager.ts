@@ -15,14 +15,15 @@ export enum WorkerMessageType {
   CALCULATION_ERROR = 'calculationError',
   CALCULATION_RESULT = 'calculationResult',
   WORKER_READY = 'workerReady',
-  TERMINATE = 'terminate'
+  TERMINATE = 'terminate',
+  DEBUG = 'debug' // Added debug message type
 }
 
 /**
  * Worker message structure
  */
 export interface WorkerMessage {
-  type: WorkerMessageType;
+  type: WorkerMessageType | string;
   payload?: any;
   id?: string; // Message ID for tracking requests
 }
@@ -45,6 +46,16 @@ const defaultCalculationOptions: WorkerCalculationOptions = {
 };
 
 /**
+ * Worker state enum
+ */
+enum WorkerState {
+  INITIALIZING = 'initializing',
+  READY = 'ready',
+  FAILED = 'failed',
+  TERMINATED = 'terminated'
+}
+
+/**
  * Worker Manager
  * 
  * Handles creation, communication, and termination of Web Workers
@@ -52,7 +63,7 @@ const defaultCalculationOptions: WorkerCalculationOptions = {
  */
 class WorkerManager {
   private worker: Worker | null = null;
-  private isWorkerReady: boolean = false;
+  private workerState: WorkerState = WorkerState.FAILED;
   private pendingRequests: Map<string, { 
     resolve: (value: any) => void; 
     reject: (reason: any) => void;
@@ -62,6 +73,8 @@ class WorkerManager {
   private pendingMessages: WorkerMessage[] = [];
   private nextRequestId = 1;
   private initAttempted = false;
+  private workerInitTimeout: number | null = null;
+  private workerId: string | null = null;
 
   /**
    * Create a new worker manager
@@ -79,6 +92,7 @@ class WorkerManager {
     // Only create the worker if it's not already created and the browser supports Web Workers
     if (!this.worker && this.isWorkerSupported() && !this.initAttempted) {
       this.initAttempted = true;
+      this.workerState = WorkerState.INITIALIZING;
       
       try {
         console.log("Creating new worker instance...");
@@ -101,37 +115,19 @@ class WorkerManager {
         // Set up error handler
         this.worker.onerror = this.handleWorkerError.bind(this);
         
-        // Wait for worker ready message
-        const readyTimeout = setTimeout(() => {
-          console.warn("Worker ready timeout - worker did not send ready message");
-          this.isWorkerReady = true;
-          this.processPendingMessages();
-        }, 2000);
-        
-        // Store timeout ID to clear it when ready message is received
-        this.pendingRequests.set('worker-init', {
-          resolve: () => {
-            clearTimeout(readyTimeout);
-            this.isWorkerReady = true;
-            console.log("Worker is ready, processing pending messages");
+        // Wait for worker ready message or timeout
+        this.workerInitTimeout = window.setTimeout(() => {
+          // Only mark as ready if we're still initializing
+          if (this.workerState === WorkerState.INITIALIZING) {
+            console.warn("Worker ready timeout - worker did not send ready message");
+            this.workerState = WorkerState.READY;
             this.processPendingMessages();
-          },
-          reject: () => {
-            clearTimeout(readyTimeout);
-            console.error("Worker initialization failed");
-            this.worker = null;
-            this.isWorkerReady = false;
           }
-        });
+        }, 5000); // Increased timeout for slower environments
         
         console.log("Worker initialization initiated");
       } catch (error) {
-        console.error('Failed to initialize calculation worker:', error);
-        this.worker = null;
-        this.isWorkerReady = false;
-        
-        // Fall back to non-worker calculations
-        this.processPendingRequests(new Error('Worker initialization failed: ' + (error instanceof Error ? error.message : String(error))));
+        this.handleWorkerInitializationFailure(error);
       }
     } else if (this.initAttempted && !this.worker) {
       console.log("Worker initialization already failed before, not retrying");
@@ -143,15 +139,44 @@ class WorkerManager {
   }
 
   /**
+   * Handle worker initialization failure
+   * @param error Error that occurred during initialization
+   */
+  private handleWorkerInitializationFailure(error: any): void {
+    console.error('Failed to initialize calculation worker:', error);
+    this.worker = null;
+    this.workerState = WorkerState.FAILED;
+    
+    // Clear worker init timeout if set
+    if (this.workerInitTimeout !== null) {
+      window.clearTimeout(this.workerInitTimeout);
+      this.workerInitTimeout = null;
+    }
+    
+    // Fall back to non-worker calculations
+    this.processPendingRequests(new Error('Worker initialization failed: ' + (error instanceof Error ? error.message : String(error))));
+  }
+
+  /**
    * Process any pending messages when the worker becomes ready
    */
   private processPendingMessages(): void {
-    if (this.worker && this.isWorkerReady) {
+    if (this.worker && this.workerState === WorkerState.READY) {
       while (this.pendingMessages.length > 0) {
         const message = this.pendingMessages.shift();
         if (message) {
           console.log(`Sending pending message: ${message.type} (ID: ${message.id})`);
-          this.worker.postMessage(message);
+          try {
+            this.worker.postMessage(message);
+          } catch (error) {
+            console.error(`Failed to send pending message: ${message.type}`, error);
+            // Handle the failure for this specific message
+            if (message.id && this.pendingRequests.has(message.id)) {
+              const request = this.pendingRequests.get(message.id)!;
+              request.reject(new Error(`Failed to send message: ${error instanceof Error ? error.message : String(error)}`));
+              this.pendingRequests.delete(message.id);
+            }
+          }
         }
       }
     }
@@ -161,9 +186,9 @@ class WorkerManager {
    * Process pending requests with an error, used when worker fails
    */
   private processPendingRequests(error: Error): void {
-    this.pendingRequests.forEach((request) => {
+    this.pendingRequests.forEach((request, key) => {
       // Skip worker init request
-      if (request !== this.pendingRequests.get('worker-init')) {
+      if (key !== 'worker-init') {
         request.reject(error);
         
         // Clear timeout if set
@@ -205,6 +230,23 @@ class WorkerManager {
       case WorkerMessageType.WORKER_READY:
         // Handle worker ready message
         console.log("Worker reported ready");
+        
+        // Clear init timeout if it exists
+        if (this.workerInitTimeout !== null) {
+          window.clearTimeout(this.workerInitTimeout);
+          this.workerInitTimeout = null;
+        }
+        
+        // Store worker ID if provided
+        if (message.payload && message.payload.workerId) {
+          this.workerId = message.payload.workerId;
+        }
+        
+        // Mark worker as ready and process pending messages
+        this.workerState = WorkerState.READY;
+        this.processPendingMessages();
+        
+        // Resolve any pending worker-init request
         if (this.pendingRequests.has('worker-init')) {
           this.pendingRequests.get('worker-init')!.resolve(true);
           this.pendingRequests.delete('worker-init');
@@ -244,6 +286,13 @@ class WorkerManager {
           
           // Remove the request from pending requests
           this.pendingRequests.delete(message.id);
+        } else if (message.id === 'worker-init') {
+          // This is an error from worker initialization
+          console.error('Worker initialization error:', message.payload);
+          this.workerState = WorkerState.FAILED;
+        } else if (!message.id) {
+          // This is a global worker error
+          console.error('Worker error:', message.payload);
         }
         break;
         
@@ -259,6 +308,11 @@ class WorkerManager {
         }
         break;
         
+      case WorkerMessageType.DEBUG:
+        // Handle debug messages
+        console.log(`Worker debug:`, message.payload);
+        break;
+        
       default:
         console.warn(`Unknown message type: ${message.type}`);
     }
@@ -271,19 +325,33 @@ class WorkerManager {
   private handleWorkerError(error: ErrorEvent): void {
     console.error('Worker error:', error);
     
+    // Mark worker as failed
+    this.workerState = WorkerState.FAILED;
+    
+    // Clear init timeout if it exists
+    if (this.workerInitTimeout !== null) {
+      window.clearTimeout(this.workerInitTimeout);
+      this.workerInitTimeout = null;
+    }
+    
+    // Create error message
+    const errorMessage = `Worker error: ${error.message}`;
+    
     // Reject worker init request if it exists
     if (this.pendingRequests.has('worker-init')) {
-      this.pendingRequests.get('worker-init')!.reject(new Error(`Worker initialization error: ${error.message}`));
+      this.pendingRequests.get('worker-init')!.reject(new Error(errorMessage));
       this.pendingRequests.delete('worker-init');
     }
     
     // Reject all pending requests
-    this.processPendingRequests(new Error(`Worker error: ${error.message}`));
+    this.processPendingRequests(new Error(errorMessage));
     
     // Terminate and cleanup
-    this.terminate();
-    this.worker = null;
-    this.isWorkerReady = false;
+    if (this.worker) {
+      this.worker.terminate();
+      this.worker = null;
+    }
+    
     this.initAttempted = true; // Mark as attempted so we don't retry automatically
   }
 
@@ -310,8 +378,14 @@ class WorkerManager {
     // Create a promise for the request
     return new Promise<T>((resolve, reject) => {
       // If worker initialization failed or workers not supported, reject immediately
-      if (!this.isWorkerSupported() || (this.initAttempted && !this.worker)) {
+      if (!this.isWorkerSupported() || (this.initAttempted && this.workerState === WorkerState.FAILED)) {
         reject(new Error('Web Workers are not supported in this environment'));
+        return;
+      }
+      
+      // If worker is terminated, reject immediately
+      if (this.workerState === WorkerState.TERMINATED) {
+        reject(new Error('Worker has been terminated'));
         return;
       }
       
@@ -353,16 +427,30 @@ class WorkerManager {
       };
       
       // Send to worker if ready, otherwise queue
-      if (this.worker && this.isWorkerReady) {
+      if (this.worker && this.workerState === WorkerState.READY) {
         console.log(`Sending message to worker: ${type} (ID: ${id})`);
-        this.worker.postMessage(message);
-      } else if (this.worker) {
+        try {
+          this.worker.postMessage(message);
+        } catch (error) {
+          console.error(`Failed to send message: ${type}`, error);
+          if (this.pendingRequests.has(id)) {
+            this.pendingRequests.delete(id);
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+            }
+            reject(new Error(`Failed to send message: ${error instanceof Error ? error.message : String(error)}`));
+          }
+        }
+      } else if (this.worker && this.workerState === WorkerState.INITIALIZING) {
         console.log(`Worker not ready, queueing message: ${type} (ID: ${id})`);
         this.pendingMessages.push(message);
       } else {
         console.error(`No worker available, rejecting: ${type} (ID: ${id})`);
         if (this.pendingRequests.has(id)) {
           this.pendingRequests.delete(id);
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+          }
           reject(new Error('Worker not available'));
         }
       }
@@ -457,7 +545,16 @@ class WorkerManager {
    * Terminate the worker
    */
   terminate(): void {
+    // Clear init timeout if it exists
+    if (this.workerInitTimeout !== null) {
+      window.clearTimeout(this.workerInitTimeout);
+      this.workerInitTimeout = null;
+    }
+    
     if (this.worker) {
+      // Mark worker as terminated
+      this.workerState = WorkerState.TERMINATED;
+      
       // Send termination message to the worker
       try {
         this.worker.postMessage({ type: WorkerMessageType.TERMINATE });
@@ -466,12 +563,16 @@ class WorkerManager {
       }
       
       // Terminate the worker
-      this.worker.terminate();
+      try {
+        this.worker.terminate();
+      } catch (error) {
+        console.warn('Error terminating worker:', error);
+      }
+      
       this.worker = null;
-      this.isWorkerReady = false;
     }
     
-    // Reject all pending requests
+    // Reject all pending requests with termination error
     this.pendingRequests.forEach((request, key) => {
       if (key !== 'worker-init') {
         request.reject(new Error('Worker terminated'));
@@ -503,6 +604,7 @@ class WorkerManager {
   reset(): void {
     this.terminate();
     this.initAttempted = false;
+    this.workerState = WorkerState.FAILED;
     this.initWorker();
   }
 
@@ -511,7 +613,7 @@ class WorkerManager {
    * @returns Whether the manager has a worker
    */
   hasWorker(): boolean {
-    return this.worker !== null;
+    return this.worker !== null && this.workerState === WorkerState.READY;
   }
 
   /**
@@ -542,6 +644,22 @@ class WorkerManager {
       }
     });
     return count;
+  }
+  
+  /**
+   * Get the worker state
+   * @returns Current worker state
+   */
+  getWorkerState(): string {
+    return this.workerState;
+  }
+  
+  /**
+   * Get the worker ID
+   * @returns Worker ID if available
+   */
+  getWorkerId(): string | null {
+    return this.workerId;
   }
 }
 

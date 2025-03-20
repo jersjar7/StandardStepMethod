@@ -18,8 +18,8 @@ const WorkerMessageType = {
 
 // Signal that the worker is starting up
 self.postMessage({
-  type: 'debug',
-  payload: 'Worker script starting initialization'
+  type: WorkerMessageType.PROGRESS_UPDATE,
+  payload: { progress: 0, message: 'Worker initialization started' }
 });
 
 // Track import success/failure
@@ -48,7 +48,8 @@ const workerModules: {
 async function loadModules() {
   try {
     // Dynamically import modules to avoid circular dependencies
-    const hydraulicsModule = await import('../utils/hydraulics/index.js');
+    // FIXED: removed .js extension which was causing import failures
+    const hydraulicsModule = await import('../utils/hydraulics/index');
     
     // Store the imported functions
     workerModules.calculateWaterSurfaceProfile = hydraulicsModule.calculateWaterSurfaceProfile;
@@ -58,39 +59,45 @@ async function loadModules() {
     
     importsSuccessful = true;
     
-    self.postMessage({
-      type: 'debug',
-      payload: 'Worker modules loaded successfully'
-    });
-    
-    // Signal that the worker is ready
+    // Signal that the worker is ready with improved messaging
     self.postMessage({
       type: WorkerMessageType.WORKER_READY,
       payload: {
+        workerId: Date.now().toString(), // Add unique ID for tracking
         capabilities: {
           canCalculate: true,
-          importsSuccessful: true
+          importsSuccessful: true,
+          supportedCalculations: [
+            'calculateWaterSurfaceProfile',
+            'calculateDetailedProfile', 
+            'calculateCriticalDepth', 
+            'calculateNormalDepth'
+          ]
         }
       }
     });
     
     return true;
   } catch (error) {
-    console.error('Failed to load worker modules:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Failed to load worker modules:', errorMessage);
     
+    // Improved error reporting
     self.postMessage({
-      type: 'debug',
-      payload: `Worker failed to load modules: ${error instanceof Error ? error.message : String(error)}`
+      type: WorkerMessageType.CALCULATION_ERROR,
+      payload: `Module loading error: ${errorMessage}`,
+      id: 'worker-init'
     });
     
     // Signal that the worker is ready but with limited capabilities
     self.postMessage({
       type: WorkerMessageType.WORKER_READY,
       payload: {
+        workerId: Date.now().toString(),
         capabilities: {
           canCalculate: false,
           importsSuccessful: false,
-          error: error instanceof Error ? error.message : String(error)
+          error: errorMessage
         }
       }
     });
@@ -101,7 +108,15 @@ async function loadModules() {
 
 // Start loading modules immediately
 loadModules().catch(error => {
-  console.error('Unhandled error during module loading:', error);
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  console.error('Unhandled error during module loading:', errorMessage);
+  
+  // Improved error reporting for unhandled errors
+  self.postMessage({
+    type: WorkerMessageType.CALCULATION_ERROR,
+    payload: `Unhandled module loading error: ${errorMessage}`,
+    id: 'module-loading'
+  });
 });
 
 // Add global error handler
@@ -136,11 +151,12 @@ const ctx: Worker = self as any;
  * Report progress to the main thread
  * @param progress Progress value (0-100)
  * @param id Message ID
+ * @param message Optional status message
  */
-function reportProgress(progress: number, id?: string): void {
+function reportProgress(progress: number, id?: string, message?: string): void {
   ctx.postMessage({
     type: WorkerMessageType.PROGRESS_UPDATE,
-    payload: { progress },
+    payload: { progress, message },
     id
   });
 }
@@ -158,10 +174,17 @@ ctx.addEventListener('message', async (event) => {
     return;
   }
 
+  // Handle termination immediately
+  if (type === WorkerMessageType.TERMINATE) {
+    console.log('Worker received termination message');
+    return;
+  }
+
   // If modules aren't loaded yet and this isn't a termination message,
   // wait for modules to load before processing
-  if (!importsSuccessful && type !== WorkerMessageType.TERMINATE) {
+  if (!importsSuccessful) {
     try {
+      reportProgress(10, id, 'Loading calculation modules...');
       const success = await loadModules();
       if (!success) {
         ctx.postMessage({
@@ -172,9 +195,10 @@ ctx.addEventListener('message', async (event) => {
         return;
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       ctx.postMessage({
         type: WorkerMessageType.CALCULATION_ERROR,
-        payload: `Failed to load worker modules: ${error instanceof Error ? error.message : String(error)}`,
+        payload: `Failed to load worker modules: ${errorMessage}`,
         id
       });
       return;
@@ -203,11 +227,6 @@ ctx.addEventListener('message', async (event) => {
         handleNormalDepthCalculation(payload, id);
         break;
 
-      case WorkerMessageType.TERMINATE:
-        // Terminate the worker
-        console.log('Worker received termination message');
-        break;
-
       default:
         console.warn(`Unknown message type: ${type}`);
         ctx.postMessage({
@@ -218,9 +237,10 @@ ctx.addEventListener('message', async (event) => {
     }
   } catch (error) {
     // Send error message back to main thread
+    const errorMessage = error instanceof Error ? error.message : 'Unknown calculation error';
     ctx.postMessage({
       type: WorkerMessageType.CALCULATION_ERROR,
-      payload: error instanceof Error ? error.message : 'Unknown calculation error',
+      payload: errorMessage,
       id
     });
   }
@@ -236,7 +256,7 @@ async function handleWaterSurfaceCalculation(payload: any, id?: string): Promise
     const { params, options } = payload;
     
     // Report initial progress
-    reportProgress(0, id);
+    reportProgress(0, id, 'Starting water surface profile calculation...');
     
     // Real start time for progress calculation
     const startTime = performance.now();
@@ -253,13 +273,14 @@ async function handleWaterSurfaceCalculation(payload: any, id?: string): Promise
     // Check if calculation function is available
     if (!workerModules.calculateWaterSurfaceProfile) {
       clearInterval(progressInterval);
-      throw new Error('Calculation function not available');
+      throw new Error('Water surface profile calculation function not available');
     }
     
     // Check if high-resolution calculation is requested
     let results;
     if (options?.highResolution) {
       // Use high-resolution calculation with type safety check
+      reportProgress(30, id, 'Computing high-resolution profile...');
       const fn = workerModules.calculateWaterSurfaceProfile;
       results = fn({
         ...params,
@@ -268,6 +289,7 @@ async function handleWaterSurfaceCalculation(payload: any, id?: string): Promise
       });
     } else {
       // Use standard calculation with type safety check
+      reportProgress(30, id, 'Computing standard profile...');
       const fn = workerModules.calculateWaterSurfaceProfile;
       results = fn(params);
     }
@@ -276,7 +298,7 @@ async function handleWaterSurfaceCalculation(payload: any, id?: string): Promise
     clearInterval(progressInterval);
     
     // Final progress update
-    reportProgress(100, id);
+    reportProgress(100, id, 'Calculation complete');
     
     // Send results back to main thread
     ctx.postMessage({
@@ -286,9 +308,10 @@ async function handleWaterSurfaceCalculation(payload: any, id?: string): Promise
     });
   } catch (error) {
     // Send error message back to main thread
+    const errorMessage = error instanceof Error ? error.message : 'Unknown calculation error';
     ctx.postMessage({
       type: WorkerMessageType.CALCULATION_ERROR,
-      payload: error instanceof Error ? error.message : 'Unknown calculation error',
+      payload: `Water surface profile calculation error: ${errorMessage}`,
       id
     });
   }
@@ -304,7 +327,7 @@ async function handleDetailedProfileCalculation(payload: any, id?: string): Prom
     const { params } = payload;
     
     // Report initial progress
-    reportProgress(0, id);
+    reportProgress(0, id, 'Starting detailed profile calculation...');
     
     // Real start time for progress calculation
     const startTime = performance.now();
@@ -321,10 +344,11 @@ async function handleDetailedProfileCalculation(payload: any, id?: string): Prom
     // Check if calculation function is available
     if (!workerModules.calculateDetailedProfile) {
       clearInterval(progressInterval);
-      throw new Error('Calculation function not available');
+      throw new Error('Detailed profile calculation function not available');
     }
     
     // Calculate detailed profile with type safety check
+    reportProgress(30, id, 'Computing detailed hydraulic properties...');
     const fn = workerModules.calculateDetailedProfile;
     const result = fn(params);
     
@@ -332,7 +356,7 @@ async function handleDetailedProfileCalculation(payload: any, id?: string): Prom
     clearInterval(progressInterval);
     
     // Final progress update
-    reportProgress(100, id);
+    reportProgress(100, id, 'Calculation complete');
     
     // Check for errors
     if (result.error) {
@@ -353,9 +377,10 @@ async function handleDetailedProfileCalculation(payload: any, id?: string): Prom
     });
   } catch (error) {
     // Send error message back to main thread
+    const errorMessage = error instanceof Error ? error.message : 'Unknown calculation error';
     ctx.postMessage({
       type: WorkerMessageType.CALCULATION_ERROR,
-      payload: error instanceof Error ? error.message : 'Unknown calculation error',
+      payload: `Detailed profile calculation error: ${errorMessage}`,
       id
     });
   }
@@ -370,14 +395,20 @@ function handleCriticalDepthCalculation(payload: any, id?: string): void {
   try {
     const { params } = payload;
     
+    // Report progress
+    reportProgress(50, id, 'Computing critical depth...');
+    
     // Check if calculation function is available
     if (!workerModules.calculateCriticalDepth) {
-      throw new Error('Calculation function not available');
+      throw new Error('Critical depth calculation function not available');
     }
     
     // Calculate critical depth with type safety check
     const fn = workerModules.calculateCriticalDepth;
     const result = fn(params);
+    
+    // Final progress update
+    reportProgress(100, id, 'Calculation complete');
     
     // Send results back to main thread
     ctx.postMessage({
@@ -387,9 +418,10 @@ function handleCriticalDepthCalculation(payload: any, id?: string): void {
     });
   } catch (error) {
     // Send error message back to main thread
+    const errorMessage = error instanceof Error ? error.message : 'Unknown calculation error';
     ctx.postMessage({
       type: WorkerMessageType.CALCULATION_ERROR,
-      payload: error instanceof Error ? error.message : 'Unknown calculation error',
+      payload: `Critical depth calculation error: ${errorMessage}`,
       id
     });
   }
@@ -404,14 +436,20 @@ function handleNormalDepthCalculation(payload: any, id?: string): void {
   try {
     const { params } = payload;
     
+    // Report progress
+    reportProgress(50, id, 'Computing normal depth...');
+    
     // Check if calculation function is available
     if (!workerModules.calculateNormalDepth) {
-      throw new Error('Calculation function not available');
+      throw new Error('Normal depth calculation function not available');
     }
     
     // Calculate normal depth with type safety check
     const fn = workerModules.calculateNormalDepth;
     const result = fn(params);
+    
+    // Final progress update
+    reportProgress(100, id, 'Calculation complete');
     
     // Send results back to main thread
     ctx.postMessage({
@@ -421,9 +459,10 @@ function handleNormalDepthCalculation(payload: any, id?: string): void {
     });
   } catch (error) {
     // Send error message back to main thread
+    const errorMessage = error instanceof Error ? error.message : 'Unknown calculation error';
     ctx.postMessage({
       type: WorkerMessageType.CALCULATION_ERROR,
-      payload: error instanceof Error ? error.message : 'Unknown calculation error',
+      payload: `Normal depth calculation error: ${errorMessage}`,
       id
     });
   }
