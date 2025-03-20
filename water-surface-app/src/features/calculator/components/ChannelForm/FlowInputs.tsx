@@ -1,17 +1,25 @@
 import React from 'react';
-import { ChannelParams } from '../../types';
+import { ChannelParams, UnitSystem } from '../../types';
+import { getUnitLabel } from '../../utils/unitConversion';
 
 interface FlowInputsProps {
   formValues: ChannelParams;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   errors?: Record<string, string>;
+  unitSystem?: UnitSystem;
 }
 
 const FlowInputs: React.FC<FlowInputsProps> = ({
   formValues,
   onInputChange,
-  errors = {}
+  errors = {},
+  unitSystem = 'metric'
 }) => {
+  const getLabelWithUnit = (paramName: string, label: string): string => {
+    const unitStr = getUnitLabel(paramName, unitSystem);
+    return unitStr ? `${label} (${unitStr})` : label;
+  };
+
   return (
     <div className="col-span-1 md:col-span-2">
       <h3 className="text-lg font-medium mb-3">Flow Parameters</h3>
@@ -41,7 +49,7 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
         
         <div>
           <label htmlFor="channel-slope" className="block text-sm font-medium text-gray-700 mb-1">
-            Channel Slope (m/m)
+            {getLabelWithUnit('channelSlope', 'Channel Slope')}
           </label>
           <input
             type="number"
@@ -64,7 +72,7 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
         
         <div>
           <label htmlFor="discharge" className="block text-sm font-medium text-gray-700 mb-1">
-            Discharge (m³/s)
+            {getLabelWithUnit('discharge', 'Discharge')}
           </label>
           <input
             type="number"
@@ -87,7 +95,7 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
         
         <div>
           <label htmlFor="channel-length" className="block text-sm font-medium text-gray-700 mb-1">
-            Channel Length (m)
+            {getLabelWithUnit('length', 'Channel Length')}
           </label>
           <input
             type="number"

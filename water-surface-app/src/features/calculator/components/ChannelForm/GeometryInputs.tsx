@@ -1,19 +1,27 @@
 import React from 'react';
-import { ChannelParams } from '../../types';
+import { ChannelParams, UnitSystem } from '../../types';
+import { getUnitLabel } from '../../utils/unitConversion';
 
 interface GeometryInputsProps {
   channelType: string;
   formValues: ChannelParams;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   errors?: Record<string, string>;
+  unitSystem?: UnitSystem;
 }
 
 const GeometryInputs: React.FC<GeometryInputsProps> = ({
   channelType,
   formValues,
   onInputChange,
-  errors = {}
+  errors = {},
+  unitSystem = 'metric'
 }) => {
+  const getLabelWithUnit = (paramName: string, label: string): string => {
+    const unitStr = getUnitLabel(paramName, unitSystem);
+    return unitStr ? `${label} (${unitStr})` : label;
+  };
+
   return (
     <div className="col-span-1 md:col-span-2">
       <h3 className="text-lg font-medium mb-3">Geometry Parameters</h3>
@@ -22,7 +30,7 @@ const GeometryInputs: React.FC<GeometryInputsProps> = ({
         {(channelType === 'rectangular' || channelType === 'trapezoidal') && (
           <div>
             <label htmlFor="bottom-width" className="block text-sm font-medium text-gray-700 mb-1">
-              Bottom Width (m)
+              {getLabelWithUnit('bottomWidth', 'Bottom Width')}
             </label>
             <input
               type="number"
@@ -74,7 +82,7 @@ const GeometryInputs: React.FC<GeometryInputsProps> = ({
         {channelType === 'circular' && (
           <div>
             <label htmlFor="diameter" className="block text-sm font-medium text-gray-700 mb-1">
-              Diameter (m)
+              {getLabelWithUnit('diameter', 'Diameter')}
             </label>
             <input
               type="number"

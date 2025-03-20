@@ -27,7 +27,8 @@ water-surface-app/
 │   │   │   │   │   ├── ChannelTypeSelector.tsx # Channel type selection
 │   │   │   │   │   ├── GeometryInputs.tsx      # Geometry parameters section
 │   │   │   │   │   ├── FlowInputs.tsx          # Flow parameters section
-│   │   │   │   │   └── BoundaryConditions.tsx  # Boundary conditions section
+│   │   │   │   │   ├── BoundaryConditions.tsx  # Boundary conditions section
+│   │   │   │   │   └── UnitSystemSelector.tsx  # Unit System Selector
 │   │   │   │   ├── CalculatorTabs.tsx          # Tabs for calculator views
 │   │   │   │   ├── CalculationControls.tsx     # Calculate and reset buttons
 │   │   │   │   ├── CrossSectionView.tsx        # Cross-section visualization
@@ -79,8 +80,9 @@ water-surface-app/
 │   │   │   │   │   │   ├── stepCalculator.ts   # Single step calculation logic
 │   │   │   │   │   │   ├── transitionDetector.ts # Profile transitions detection
 │   │   │   │   │   │   └──types.ts             # Type definitions
-│   │   │   │   │   ├──  diagnosticUtils.ts     # Diagnostic of utils
-│   │   │   │   │   └── index.ts                # Re-exports for compatibility
+│   │   │   │   │   ├── diagnosticUtils.ts      # Diagnostic of utils
+│   │   │   │   │   ├── helpers.ts              # Helper functions for the calculator feature
+│   │   │   │   │   └── unitConversion.ts       # Conversion factors
 │   │   │   │   └──  helpers.ts                 # Helper functions
 │   │   │   ├── validators/                     # Input validation
 │   │   │   │   └── inputValidators.ts          # Validation functions

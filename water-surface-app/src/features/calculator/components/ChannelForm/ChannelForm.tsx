@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChannelParams, ChannelType } from '../../types';
+import { ChannelParams, ChannelType, UnitSystem } from '../../types';
 import { validateAllInputs } from '../../validators/inputValidators';
 import { getUpdatedChannelParams } from '../../stores/types/channelTypes';
+import { convertChannelParams } from '../../utils/unitConversion';
 import ChannelTypeSelector from './ChannelTypeSelector';
 import GeometryInputs from './GeometryInputs';
 import FlowInputs from './FlowInputs';
 import BoundaryConditions from './BoundaryConditions';
+import UnitSystemSelector from './UnitSystemSelector';
 
 interface ChannelFormProps {
   channelParams: ChannelParams;
@@ -100,6 +102,16 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
     onChannelTypeChange(type);
     onParamsChange(updatedParams);
   }, [formValues, onChannelTypeChange, onParamsChange]);
+
+  // Handle unit system changes
+  const handleUnitSystemChange = useCallback((unitSystem: UnitSystem) => {
+    // Convert values to the new unit system
+    const convertedParams = convertChannelParams(formValues, unitSystem);
+    
+    // Update form values and parent state
+    setFormValues(convertedParams);
+    onParamsChange(convertedParams);
+  }, [formValues, onParamsChange]);
   
   // Handle form submission
   const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -119,7 +131,14 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
 
   return (
     <div className="bg-white shadow rounded-lg p-6">
-      <h2 className="text-xl font-semibold mb-4">Channel Parameters</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Channel Parameters</h2>
+        <UnitSystemSelector 
+          unitSystem={formValues.units || 'metric'} 
+          onUnitSystemChange={handleUnitSystemChange}
+          disabled={isCalculating}
+        />
+      </div>
       
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -135,6 +154,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
             formValues={formValues}
             onInputChange={handleInputChange}
             errors={validationErrors}
+            unitSystem={formValues.units || 'metric'}
           />
           
           {/* Flow Parameters */}
@@ -142,6 +162,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
             formValues={formValues}
             onInputChange={handleInputChange}
             errors={validationErrors}
+            unitSystem={formValues.units || 'metric'}
           />
           
           {/* Boundary Conditions */}
@@ -151,6 +172,7 @@ const ChannelForm: React.FC<ChannelFormProps> = ({
             onInputChange={handleInputChange}
             onBoundaryConditionChange={handleBoundaryConditionChange}
             errors={validationErrors}
+            unitSystem={formValues.units || 'metric'}
           />
           
           {/* Validation Error Summary */}

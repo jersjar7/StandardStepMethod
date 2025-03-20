@@ -1,5 +1,6 @@
 import React from 'react';
-import { ChannelParams } from '../../types';
+import { ChannelParams, UnitSystem } from '../../types';
+import { getUnitLabel } from '../../utils/unitConversion';
 
 interface BoundaryConditionsProps {
   channelParams: ChannelParams;
@@ -7,6 +8,7 @@ interface BoundaryConditionsProps {
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onBoundaryConditionChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   errors?: Record<string, string>;
+  unitSystem?: UnitSystem;
 }
 
 const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
@@ -14,7 +16,8 @@ const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
   formValues,
   onInputChange,
   onBoundaryConditionChange,
-  errors = {}
+  errors = {},
+  unitSystem = 'metric'
 }) => {
   // Determine the current boundary condition type
   const getBoundaryConditionType = (): 'critical-downstream' | 'normal-upstream' | 'custom' => {
@@ -27,6 +30,11 @@ const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
     }
     // Default if no boundary conditions set
     return 'critical-downstream';
+  };
+  
+  const getLabelWithUnit = (paramName: string, label: string): string => {
+    const unitStr = getUnitLabel(paramName, unitSystem);
+    return unitStr ? `${label} (${unitStr})` : label;
   };
   
   return (
@@ -55,7 +63,7 @@ const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="upstream-depth" className="block text-sm font-medium text-gray-700 mb-1">
-              Upstream Depth (m)
+              {getLabelWithUnit('upstreamDepth', 'Upstream Depth')}
             </label>
             <input
               type="number"
@@ -78,7 +86,7 @@ const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
           
           <div>
             <label htmlFor="downstream-depth" className="block text-sm font-medium text-gray-700 mb-1">
-              Downstream Depth (m)
+              {getLabelWithUnit('downstreamDepth', 'Downstream Depth')}
             </label>
             <input
               type="number"
