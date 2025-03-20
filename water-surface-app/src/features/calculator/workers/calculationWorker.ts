@@ -47,15 +47,36 @@ const workerModules: {
 // Attempt to dynamically import the modules
 async function loadModules() {
   try {
+    // Signal progress to the main thread
+    self.postMessage({
+      type: WorkerMessageType.PROGRESS_UPDATE,
+      payload: { progress: 10, message: 'Loading calculation modules...' }
+    });
+    
     // Dynamically import modules to avoid circular dependencies
-    // FIXED: removed .js extension which was causing import failures
+    // Using more robust error handling
+    console.log("Worker attempting to import hydraulics module...");
+    
+    // First check if the path is valid - we need to confirm the file actually exists
+    // This can help diagnose issues with build systems and import paths
     const hydraulicsModule = await import('../utils/hydraulics/index');
+    
+    // Log import success to help with debugging
+    console.log("Worker successfully imported hydraulics module");
     
     // Store the imported functions
     workerModules.calculateWaterSurfaceProfile = hydraulicsModule.calculateWaterSurfaceProfile;
     workerModules.calculateDetailedProfile = hydraulicsModule.calculateDetailedProfile;
     workerModules.calculateCriticalDepth = hydraulicsModule.calculateCriticalDepth;
     workerModules.calculateNormalDepth = hydraulicsModule.calculateNormalDepth;
+    
+    // Verify that the functions were actually loaded - this catches issues 
+    // where the module loads but doesn't contain the expected exports
+    if (!workerModules.calculateWaterSurfaceProfile || 
+        !workerModules.calculateCriticalDepth || 
+        !workerModules.calculateNormalDepth) {
+      throw new Error("Module loaded but required functions are missing");
+    }
     
     importsSuccessful = true;
     
@@ -82,10 +103,10 @@ async function loadModules() {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Failed to load worker modules:', errorMessage);
     
-    // Improved error reporting
+    // Improved error reporting with more details
     self.postMessage({
       type: WorkerMessageType.CALCULATION_ERROR,
-      payload: `Module loading error: ${errorMessage}`,
+      payload: `Module loading error: ${errorMessage}. Worker cannot function.`,
       id: 'worker-init'
     });
     

@@ -1,6 +1,6 @@
 // src/features/calculator/hooks/useStandardCalculation.ts
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../stores';
 import {
@@ -41,6 +41,11 @@ const defaultOptions: UseStandardCalculationOptions = {
 };
 
 /**
+ * Progress callback function type
+ */
+export type ProgressCallback = (progress: number) => void;
+
+/**
  * Unified calculation hook
  * 
  * This hook provides a standardized interface for water surface profile calculations,
@@ -65,8 +70,14 @@ export function useStandardCalculation(
   const [localResults, setLocalResults] = useState<WaterSurfaceProfileResults | null>(null);
   const [progress, setProgress] = useState<number>(0);
   
-  // Update calculation service options
+  // Ref to track component mount state
+  const isMounted = useRef(true);
+
+  // Update calculation service options and handle cleanup
   useEffect(() => {
+    // Set isMounted to true when the component mounts
+    isMounted.current = true;
+    
     if (hookOptions.calculationOptions) {
       calculationService.updateOptions({
         ...hookOptions.calculationOptions,
@@ -76,6 +87,10 @@ export function useStandardCalculation(
     
     // Clean up when unmounting
     return () => {
+      // Set isMounted to false to prevent state updates after unmount
+      isMounted.current = false;
+      
+      // Terminate any running calculations
       calculationService.terminate();
     };
   }, [hookOptions.calculationOptions]);
@@ -85,11 +100,14 @@ export function useStandardCalculation(
    * @param currentProgress Current progress value
    */
   const handleProgress = useCallback((currentProgress: number) => {
-    setProgress(currentProgress);
-    
-    // If external progress handler is provided, call it
-    if (hookOptions.onProgress) {
-      hookOptions.onProgress(currentProgress);
+    // Only update state if component is still mounted
+    if (isMounted.current) {
+      setProgress(currentProgress);
+      
+      // If external progress handler is provided, call it
+      if (hookOptions.onProgress) {
+        hookOptions.onProgress(currentProgress);
+      }
     }
   }, [hookOptions.onProgress]);
 
@@ -101,6 +119,9 @@ export function useStandardCalculation(
   const calculateWaterSurfaceProfile = useCallback(async (
     params: ChannelParams
   ): Promise<WaterSurfaceProfileResults | null> => {
+    // Only proceed if component is mounted
+    if (!isMounted.current) return null;
+    
     // Set loading state
     if (hookOptions.useRedux) {
       dispatch(startCalculation());
@@ -118,6 +139,9 @@ export function useStandardCalculation(
         params, 
         handleProgress
       );
+      
+      // Only update state if component is still mounted
+      if (!isMounted.current) return null;
       
       // Handle error
       if (result.error) {
@@ -140,6 +164,9 @@ export function useStandardCalculation(
       
       return result.results || null;
     } catch (error) {
+      // Only update state if component is still mounted
+      if (!isMounted.current) return null;
+      
       // Handle unexpected errors
       const errorMessage = error instanceof Error ? error.message : 'Unknown calculation error';
       
@@ -162,6 +189,9 @@ export function useStandardCalculation(
   const calculateDetailedProfile = useCallback(async (
     params: ChannelParams
   ): Promise<DetailedWaterSurfaceResults | null> => {
+    // Only proceed if component is mounted
+    if (!isMounted.current) return null;
+    
     // Set loading state
     if (hookOptions.useRedux) {
       dispatch(startCalculation());
@@ -179,6 +209,9 @@ export function useStandardCalculation(
         params, 
         handleProgress
       );
+      
+      // Only update state if component is still mounted
+      if (!isMounted.current) return null;
       
       // Handle error
       if (result.error) {
@@ -201,6 +234,9 @@ export function useStandardCalculation(
       
       return result.results || null;
     } catch (error) {
+      // Only update state if component is still mounted
+      if (!isMounted.current) return null;
+      
       // Handle unexpected errors
       const errorMessage = error instanceof Error ? error.message : 'Unknown calculation error';
       
@@ -228,8 +264,8 @@ export function useStandardCalculation(
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown calculation error';
       
-      // Only update error state if autoManageState is enabled
-      if (hookOptions.autoManageState) {
+      // Only update error state if component is mounted and autoManageState is enabled
+      if (isMounted.current && hookOptions.autoManageState) {
         if (hookOptions.useRedux) {
           dispatch(calculationFailure(errorMessage));
         } else {
@@ -254,8 +290,8 @@ export function useStandardCalculation(
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown calculation error';
       
-      // Only update error state if autoManageState is enabled
-      if (hookOptions.autoManageState) {
+      // Only update error state if component is mounted and autoManageState is enabled
+      if (isMounted.current && hookOptions.autoManageState) {
         if (hookOptions.useRedux) {
           dispatch(calculationFailure(errorMessage));
         } else {
@@ -271,6 +307,9 @@ export function useStandardCalculation(
    * Reset calculation state
    */
   const resetCalculation = useCallback(() => {
+    // Only update state if component is mounted
+    if (!isMounted.current) return;
+    
     // Reset progress
     setProgress(0);
     

@@ -138,67 +138,77 @@ class CalculationService {
   }
 
   /**
-   * Test if workers are available and functioning with improved reliability
-   * This tests actual worker operation, not just feature detection
-   */
-  private async testWorkerAvailability(): Promise<boolean> {
-    // Skip testing if workers are disabled or already determined to be unsupported
-    if (!this.options.useWorker || !this.workerCapabilities.supported) {
-      return false;
-    }
-    
-    // If we've tested recently, don't test again
-    const now = Date.now();
-    const testInterval = 5 * 60 * 1000; // 5 minutes
-    if (this.workerCapabilities.lastTestTimestamp > 0 && 
-        now - this.workerCapabilities.lastTestTimestamp < testInterval) {
-      return this.workerCapabilities.testedSuccessfully;
-    }
-    
-    // Update test timestamp
-    this.workerCapabilities.lastTestTimestamp = now;
-    
-    // Create a Promise that rejects after a timeout
-    const timeoutPromise = new Promise<boolean>((_, reject) => {
-      setTimeout(() => reject(new Error('Worker test timed out')), this.options.workerTestTimeout);
-    });
-    
-    try {
-      // Simple rectangular channel test parameters
-      const testParams: ChannelParams = {
-        channelType: 'rectangular',
-        bottomWidth: 10,
-        manningN: 0.03,
-        channelSlope: 0.001,
-        discharge: 50,
-        length: 100,
-        units: 'metric'
-      };
-      
-      // Perform a simple calculation to test if workers are working properly
-      // Use Promise.race to add a timeout
-      await Promise.race([
-        this.workerManager.calculateCriticalDepth(testParams),
-        timeoutPromise
-      ]);
-      
-      // If we get here, the test was successful
-      console.log('Worker test successful');
-      this.workerCapabilities.testedSuccessfully = true;
-      return true;
-    } catch (error) {
-      // Include detailed error information
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      this.workerCapabilities.failReason = `Worker test failed: ${errorMsg}`;
-      this.workerCapabilities.testedSuccessfully = false;
-      
-      console.warn(`Worker test failed, falling back to direct calculations: ${errorMsg}`);
-      
-      // Reset worker manager to clear any failed state
-      this.workerManager.reset();
-      return false;
-    }
+ * Test if workers are available and functioning with improved reliability
+ * This tests actual worker operation, not just feature detection
+ */
+private async testWorkerAvailability(): Promise<boolean> {
+  // Skip testing if workers are disabled or already determined to be unsupported
+  if (!this.options.useWorker || !this.workerCapabilities.supported) {
+    return false;
   }
+  
+  // If we've tested recently, don't test again
+  const now = Date.now();
+  const testInterval = 5 * 60 * 1000; // 5 minutes
+  if (this.workerCapabilities.lastTestTimestamp > 0 && 
+      now - this.workerCapabilities.lastTestTimestamp < testInterval) {
+    return this.workerCapabilities.testedSuccessfully;
+  }
+  
+  // Update test timestamp
+  this.workerCapabilities.lastTestTimestamp = now;
+  
+  // Create a Promise that rejects after a longer timeout
+  // Increased timeout for more complex environments
+  const timeoutPromise = new Promise<boolean>((_, reject) => {
+    setTimeout(() => reject(new Error('Worker test timed out')), 
+      this.options.workerTestTimeout || 10000); // Default to 10 seconds if not set
+  });
+  
+  try {
+    // Simple rectangular channel test parameters
+    const testParams: ChannelParams = {
+      channelType: 'rectangular',
+      bottomWidth: 10,
+      manningN: 0.03,
+      channelSlope: 0.001,
+      discharge: 50,
+      length: 100,
+      units: 'metric'
+    };
+    
+    console.log("Testing worker with simple critical depth calculation...");
+    
+    // Perform a simple calculation to test if workers are working properly
+    // Use Promise.race to add a timeout
+    const result = await Promise.race([
+      this.workerManager.calculateCriticalDepth(testParams),
+      timeoutPromise
+    ]);
+    
+    // Verify the result makes sense (should be a positive number for this simple case)
+    // This helps ensure the worker is returning valid data
+    if (typeof result !== 'number' || result <= 0) {
+      throw new Error('Worker returned invalid result');
+    }
+    
+    // If we get here, the test was successful
+    console.log('Worker test successful, result:', result);
+    this.workerCapabilities.testedSuccessfully = true;
+    return true;
+  } catch (error) {
+    // Include detailed error information
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    this.workerCapabilities.failReason = `Worker test failed: ${errorMsg}`;
+    this.workerCapabilities.testedSuccessfully = false;
+    
+    console.warn(`Worker test failed, falling back to direct calculations: ${errorMsg}`);
+    
+    // Reset worker manager to clear any failed state
+    this.workerManager.reset();
+    return false;
+  }
+}
 
   /**
    * Generate a cache key for the given parameters

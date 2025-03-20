@@ -84,59 +84,64 @@ class WorkerManager {
   }
 
   /**
-   * Initialize the worker if needed and supported
-   */
-  private initWorker(): void {
-    console.log("Attempting to initialize worker...");
+ * Initialize the worker if needed and supported
+ */
+private initWorker(): void {
+  console.log("Attempting to initialize worker...");
+  
+  // Only create the worker if it's not already created and the browser supports Web Workers
+  if (!this.worker && this.isWorkerSupported() && !this.initAttempted) {
+    this.initAttempted = true;
+    this.workerState = WorkerState.INITIALIZING;
     
-    // Only create the worker if it's not already created and the browser supports Web Workers
-    if (!this.worker && this.isWorkerSupported() && !this.initAttempted) {
-      this.initAttempted = true;
-      this.workerState = WorkerState.INITIALIZING;
+    try {
+      console.log("Creating new worker instance...");
       
-      try {
-        console.log("Creating new worker instance...");
-        
-        // Check module worker support first to avoid unrecoverable errors
-        if (this.isModuleWorkerSupported()) {
-          // Create a new worker with module type
-          this.worker = new Worker(new URL('../workers/calculationWorker.ts', import.meta.url), { type: 'module' });
-        } else {
-          // Fallback to classic worker if module workers not supported
-          console.log("Module workers not supported, falling back to classic worker");
-          this.worker = new Worker(new URL('../workers/calculationWorkerFallback.js', import.meta.url));
-        }
-        
-        console.log("Worker created, setting up message handlers...");
-        
-        // Set up message handler
-        this.worker.onmessage = this.handleWorkerMessage.bind(this);
-        
-        // Set up error handler
-        this.worker.onerror = this.handleWorkerError.bind(this);
-        
-        // Wait for worker ready message or timeout
-        this.workerInitTimeout = window.setTimeout(() => {
-          // Only mark as ready if we're still initializing
-          if (this.workerState === WorkerState.INITIALIZING) {
-            console.warn("Worker ready timeout - worker did not send ready message");
-            this.workerState = WorkerState.READY;
-            this.processPendingMessages();
-          }
-        }, 5000); // Increased timeout for slower environments
-        
-        console.log("Worker initialization initiated");
-      } catch (error) {
-        this.handleWorkerInitializationFailure(error);
+      // Check module worker support first to avoid unrecoverable errors
+      if (this.isModuleWorkerSupported()) {
+        // Create a new worker with module type
+        this.worker = new Worker(new URL('../workers/calculationWorker.ts', import.meta.url), { type: 'module' });
+      } else {
+        // Fallback to classic worker if module workers not supported
+        console.log("Module workers not supported, falling back to classic worker");
+        this.worker = new Worker(new URL('../workers/calculationWorkerFallback.js', import.meta.url));
       }
-    } else if (this.initAttempted && !this.worker) {
-      console.log("Worker initialization already failed before, not retrying");
-    } else if (this.worker) {
-      console.log("Worker already exists");
-    } else {
-      console.log("Web Workers not supported");
+      
+      console.log("Worker created, setting up message handlers...");
+      
+      // Set up message handler
+      this.worker.onmessage = this.handleWorkerMessage.bind(this);
+      
+      // Set up error handler
+      this.worker.onerror = this.handleWorkerError.bind(this);
+      
+      // Wait for worker ready message or timeout
+      // Increased timeout significantly for slower environments or complex initialization
+      this.workerInitTimeout = window.setTimeout(() => {
+        // Only mark as ready if we're still initializing
+        if (this.workerState === WorkerState.INITIALIZING) {
+          console.warn("Worker ready timeout - worker did not send ready message");
+          // Change from automatically marking as ready to failed
+          // since we didn't receive proper initialization
+          this.workerState = WorkerState.FAILED;
+          console.log("Worker initialization failed (timeout). Using direct calculations.");
+          // Process pending requests with error to avoid hanging
+          this.processPendingRequests(new Error('Worker initialization timed out'));
+        }
+      }, 10000); // Increased timeout from 5000ms to 10000ms
+      
+      console.log("Worker initialization initiated");
+    } catch (error) {
+      this.handleWorkerInitializationFailure(error);
     }
+  } else if (this.initAttempted && !this.worker) {
+    console.log("Worker initialization already failed before, not retrying");
+  } else if (this.worker) {
+    console.log("Worker already exists");
+  } else {
+    console.log("Web Workers not supported");
   }
+}
 
   /**
    * Handle worker initialization failure
