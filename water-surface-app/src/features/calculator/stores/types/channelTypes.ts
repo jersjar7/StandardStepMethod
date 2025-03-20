@@ -19,7 +19,7 @@ export const defaultChannelParams: Record<ChannelType, ChannelParams> = {
     channelSlope: 0.001,
     discharge: 50,
     length: 1000,
-    units: 'metric'
+    units: 'imperial'
   },
   
   trapezoidal: {
@@ -30,7 +30,7 @@ export const defaultChannelParams: Record<ChannelType, ChannelParams> = {
     channelSlope: 0.001,
     discharge: 60,
     length: 1000,
-    units: 'metric'
+    units: 'imperial'
   },
   
   triangular: {
@@ -41,7 +41,7 @@ export const defaultChannelParams: Record<ChannelType, ChannelParams> = {
     channelSlope: 0.002,
     discharge: 30,
     length: 1000,
-    units: 'metric'
+    units: 'imperial'
   },
   
   circular: {
@@ -52,7 +52,7 @@ export const defaultChannelParams: Record<ChannelType, ChannelParams> = {
     channelSlope: 0.001,
     discharge: 20,
     length: 1000,
-    units: 'metric'
+    units: 'imperial'
   }
 };
 

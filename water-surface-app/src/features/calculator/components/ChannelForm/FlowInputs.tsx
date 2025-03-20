@@ -13,7 +13,7 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
   formValues,
   onInputChange,
   errors = {},
-  unitSystem = 'metric'
+  unitSystem = 'imperial'
 }) => {
   const getLabelWithUnit = (paramName: string, label: string): string => {
     const unitStr = getUnitLabel(paramName, unitSystem);

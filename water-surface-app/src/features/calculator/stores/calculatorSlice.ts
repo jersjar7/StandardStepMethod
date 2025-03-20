@@ -50,7 +50,7 @@ const initialState: CalculatorState = {
     channelSlope: 0.001,
     discharge: 100,
     length: 1000,
-    units: 'metric'
+    units: 'imperial'
   },
   
   // Initial calculation status

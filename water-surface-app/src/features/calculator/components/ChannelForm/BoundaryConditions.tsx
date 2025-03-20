@@ -17,7 +17,7 @@ const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
   onInputChange,
   onBoundaryConditionChange,
   errors = {},
-  unitSystem = 'metric'
+  unitSystem = 'imperial'
 }) => {
   // Determine the current boundary condition type
   const getBoundaryConditionType = (): 'critical-downstream' | 'normal-upstream' | 'custom' => {
