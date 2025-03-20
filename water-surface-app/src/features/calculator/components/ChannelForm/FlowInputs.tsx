@@ -17,11 +17,12 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
       <h3 className="text-lg font-medium mb-3">Flow Parameters</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="manning-n" className="block text-sm font-medium text-gray-700 mb-1">
             Manning's Roughness (n)
           </label>
           <input
             type="number"
+            id="manning-n"
             name="manningN"
             value={formValues.manningN}
             onChange={onInputChange}
@@ -39,11 +40,12 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="channel-slope" className="block text-sm font-medium text-gray-700 mb-1">
             Channel Slope (m/m)
           </label>
           <input
             type="number"
+            id="channel-slope"
             name="channelSlope"
             value={formValues.channelSlope}
             onChange={onInputChange}
@@ -61,11 +63,12 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="discharge" className="block text-sm font-medium text-gray-700 mb-1">
             Discharge (m³/s)
           </label>
           <input
             type="number"
+            id="discharge"
             name="discharge"
             value={formValues.discharge}
             onChange={onInputChange}
@@ -83,11 +86,12 @@ const FlowInputs: React.FC<FlowInputsProps> = ({
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="channel-length" className="block text-sm font-medium text-gray-700 mb-1">
             Channel Length (m)
           </label>
           <input
             type="number"
+            id="channel-length"
             name="length"
             value={formValues.length}
             onChange={onInputChange}

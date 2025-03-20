@@ -21,11 +21,12 @@ const GeometryInputs: React.FC<GeometryInputsProps> = ({
         {/* Bottom Width - for rectangular and trapezoidal */}
         {(channelType === 'rectangular' || channelType === 'trapezoidal') && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="bottom-width" className="block text-sm font-medium text-gray-700 mb-1">
               Bottom Width (m)
             </label>
             <input
               type="number"
+              id="bottom-width"
               name="bottomWidth"
               value={formValues.bottomWidth}
               onChange={onInputChange}
@@ -46,11 +47,12 @@ const GeometryInputs: React.FC<GeometryInputsProps> = ({
         {/* Side Slope - for trapezoidal and triangular */}
         {(channelType === 'trapezoidal' || channelType === 'triangular') && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="side-slope" className="block text-sm font-medium text-gray-700 mb-1">
               Side Slope (H:V)
             </label>
             <input
               type="number"
+              id="side-slope"
               name="sideSlope"
               value={formValues.sideSlope || 1}
               onChange={onInputChange}
@@ -71,11 +73,12 @@ const GeometryInputs: React.FC<GeometryInputsProps> = ({
         {/* Diameter - for circular */}
         {channelType === 'circular' && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="diameter" className="block text-sm font-medium text-gray-700 mb-1">
               Diameter (m)
             </label>
             <input
               type="number"
+              id="diameter"
               name="diameter"
               value={formValues.diameter || 1.0}
               onChange={onInputChange}

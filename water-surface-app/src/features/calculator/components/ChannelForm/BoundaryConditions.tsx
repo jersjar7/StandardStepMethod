@@ -34,10 +34,12 @@ const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
       <h3 className="text-lg font-medium mb-3">Boundary Conditions</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="boundary-condition-type" className="block text-sm font-medium text-gray-700 mb-1">
             Boundary Condition Type
           </label>
           <select
+            id="boundary-condition-type"
+            name="boundaryConditionType"
             value={getBoundaryConditionType()}
             onChange={onBoundaryConditionChange}
             className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
@@ -52,11 +54,12 @@ const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
       {getBoundaryConditionType() === 'custom' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="upstream-depth" className="block text-sm font-medium text-gray-700 mb-1">
               Upstream Depth (m)
             </label>
             <input
               type="number"
+              id="upstream-depth"
               name="upstreamDepth"
               value={formValues.upstreamDepth || ''}
               onChange={onInputChange}
@@ -74,11 +77,12 @@ const BoundaryConditions: React.FC<BoundaryConditionsProps> = ({
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="downstream-depth" className="block text-sm font-medium text-gray-700 mb-1">
               Downstream Depth (m)
             </label>
             <input
               type="number"
+              id="downstream-depth"
               name="downstreamDepth"
               value={formValues.downstreamDepth || ''}
               onChange={onInputChange}
